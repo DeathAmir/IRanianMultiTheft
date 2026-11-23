@@ -1,5 +1,6 @@
 #include "world.hpp"
 #include <fstream>
+#include <utility>
 namespace ires {
 bool LoadMap(const std::string& path,std::vector<Primitive>& objects) {
  std::ifstream in(path); if(!in) return false; std::string magic; int version=0; in>>magic>>version; if(magic!="IREMAP"||version!=1) return false;
