@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+
 include(FetchContent)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
@@ -24,9 +26,10 @@ FetchContent_MakeAvailable(raylib enet)
 add_library(ires_engine STATIC
     engine/ires_engine.cpp
     engine/asset_formats.cpp
+    engine/iresa.cpp
 )
 target_include_directories(ires_engine PUBLIC engine)
-target_link_libraries(ires_engine PUBLIC raylib)
+target_link_libraries(ires_engine PUBLIC raylib OpenSSL::Crypto)
 
 add_executable(irantheft src/main.cpp)
 target_link_libraries(irantheft PRIVATE ires_engine enet)
@@ -36,6 +39,9 @@ add_executable(ires_editor tools/ires_editor.cpp)
 target_link_libraries(ires_editor PRIVATE ires_engine)
 
 add_executable(ires_packer tools/ires_packer.cpp engine/asset_formats.cpp)
+
+add_executable(ires_signer tools/ires_signer.cpp)
+target_link_libraries(ires_signer PRIVATE ires_engine)
 target_include_directories(ires_packer PRIVATE engine)
 target_link_libraries(ires_packer PRIVATE raylib)
 add_dependencies(irantheft ires_packer)
@@ -53,7 +59,7 @@ if(WIN32)
 endif()
 
 if(MSVC)
-    foreach(target ires_engine irantheft ires_editor ires_packer)
+    foreach(target ires_engine irantheft ires_editor ires_packer ires_signer)
         target_compile_options(${target} PRIVATE /W4 /permissive-)
     endforeach()
 else()
@@ -62,4 +68,4 @@ else()
     endforeach()
 endif()
 
-install(TARGETS irantheft ires_editor ires_packer RUNTIME DESTINATION .)
+install(TARGETS irantheft ires_editor ires_packer ires_signer RUNTIME DESTINATION .)
