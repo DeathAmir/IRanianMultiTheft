@@ -27,6 +27,7 @@ add_library(ires_engine STATIC
     engine/ires_engine.cpp
     engine/asset_formats.cpp
     engine/iresa.cpp
+    engine/world.cpp
 )
 target_include_directories(ires_engine PUBLIC engine)
 target_link_libraries(ires_engine PUBLIC raylib OpenSSL::Crypto)
@@ -37,6 +38,9 @@ target_include_directories(irantheft PRIVATE ${enet_SOURCE_DIR}/include)
 
 add_executable(ires_editor tools/ires_editor.cpp)
 target_link_libraries(ires_editor PRIVATE ires_engine)
+
+add_executable(ires_map_editor tools/ires_map_editor.cpp)
+target_link_libraries(ires_map_editor PRIVATE ires_engine)
 
 add_executable(ires_packer tools/ires_packer.cpp engine/asset_formats.cpp)
 
@@ -55,7 +59,7 @@ add_custom_command(TARGET irantheft POST_BUILD
 
 
 if(MINGW)
-    foreach(target irantheft ires_editor ires_packer ires_signer)
+    foreach(target irantheft ires_editor ires_map_editor ires_packer ires_signer)
         target_link_options(${target} PRIVATE -static -static-libgcc -static-libstdc++)
     endforeach()
 endif()
@@ -63,10 +67,11 @@ endif()
 if(WIN32)
     target_link_libraries(irantheft PRIVATE winmm)
     target_link_libraries(ires_editor PRIVATE winmm)
+    target_link_libraries(ires_map_editor PRIVATE winmm)
 endif()
 
 if(MSVC)
-    foreach(target ires_engine irantheft ires_editor ires_packer ires_signer)
+    foreach(target ires_engine irantheft ires_editor ires_map_editor ires_packer ires_signer)
         target_compile_options(${target} PRIVATE /W4 /permissive-)
     endforeach()
 else()
@@ -75,4 +80,4 @@ else()
     endforeach()
 endif()
 
-install(TARGETS irantheft ires_editor ires_packer ires_signer RUNTIME DESTINATION .)
+install(TARGETS irantheft ires_editor ires_map_editor ires_packer ires_signer RUNTIME DESTINATION .)
