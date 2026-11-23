@@ -27,7 +27,7 @@ bool gHasSoldierModel=false;
 bool gHasWeaponModel=false;
 void UiText(const char* text,int x,int y,float size,Color color) {
  if(gUiFont.texture.id>0) DrawTextEx(gUiFont,text,{(float)x,(float)y},size,1.0f,color);
- else UiText(text,x,y,(int)size,color);
+ else DrawText(text,x,y,(int)size,color);
 }
 constexpr int DefaultPort=27880;
 constexpr uint32_t PacketMagic=0x49524553;
