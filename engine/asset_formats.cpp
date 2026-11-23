@@ -110,3 +110,15 @@ bool LoadIremgModel(const std::string& archive, const std::string& path, ModelAs
     return ok;
 }
 }
+
+namespace ires {
+bool LoadIremgTexture(const std::string& archive, const std::string& path, TextureAsset& out) {
+    std::string data;
+    if (!ReadIremg(archive,path,data)) return false;
+    const auto temp=fs::temp_directory_path()/"ires_texture_cache.iret";
+    { std::ofstream f(temp); if(!f) return false; f << data; }
+    const bool ok=LoadIret(temp.string(),out);
+    std::error_code ec; fs::remove(temp,ec);
+    return ok;
+}
+}
