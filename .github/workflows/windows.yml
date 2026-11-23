@@ -16,32 +16,45 @@ jobs:
   build-and-package:
     name: Build game on Windows and create NSIS installer
     runs-on: windows-latest
-    env:
-      VCPKG_ROOT: C:\vcpkg
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup vcpkg cache
+      - name: Cache prebuilt OpenSSL package
         uses: actions/cache@v4
         with:
-          path: |
-            C:\vcpkg\installed
-            C:\vcpkg\downloads
-            C:\vcpkg\buildtrees
-          key: windows-vcpkg-openssl-${{ runner.os }}-x64-v1
-          restore-keys: |
-            windows-vcpkg-openssl-${{ runner.os }}-x64-
+          path: .deps/openssl-native
+          key: openssl-native-3.5.9-windows-x64-vc143
 
-      - name: Install OpenSSL
+      - name: Install prebuilt OpenSSL libraries
         shell: pwsh
         run: |
-          & "$env:VCPKG_ROOT\vcpkg.exe" install openssl:x64-windows-static
+          $root = Join-Path $env:GITHUB_WORKSPACE ".deps/openssl-native"
+          if (!(Test-Path $root)) {
+            New-Item -ItemType Directory -Force $root | Out-Null
+            $archive = Join-Path $env:RUNNER_TEMP "openssl-native.3.5.9.nupkg"
+            Invoke-WebRequest "https://www.nuget.org/api/v2/package/openssl-native/3.5.9" -OutFile $archive
+            Expand-Archive -Path $archive -DestinationPath $root -Force
+          }
+          $header = Get-ChildItem $root -Recurse -File -Filter opensslv.h | Select-Object -First 1
+          $libraries = Get-ChildItem $root -Recurse -File -Filter "*crypto*.lib"
+          $crypto = $libraries | Where-Object { $_.FullName -match "vc143" -and $_.FullName -match "static" } | Select-Object -First 1
+          if (!$crypto) { $crypto = $libraries | Where-Object { $_.FullName -match "vc143" } | Select-Object -First 1 }
+          if (!$crypto) { $crypto = $libraries | Where-Object { $_.Name -match "static" } | Select-Object -First 1 }
+          if (!$header -or !$crypto) {
+            Get-ChildItem $root -Recurse -File | Select-Object -ExpandProperty FullName
+            throw "Prebuilt OpenSSL headers or VC143 crypto library were not found."
+          }
+          "OPENSSL_INCLUDE_DIR=$($header.Directory.Parent.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_CRYPTO_LIBRARY=$($crypto.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_USE_STATIC_LIBS=TRUE" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_MSVC_STATIC_RT=TRUE" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Using prebuilt OpenSSL: $($crypto.FullName)"
 
       - name: Configure Windows x64 game
         shell: pwsh
         run: |
-          cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DVCPKG_HOST_TRIPLET=x64-windows -DOPENSSL_ROOT_DIR="$env:VCPKG_ROOT/installed/x64-windows-static"
+          cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DOPENSSL_INCLUDE_DIR="$env:OPENSSL_INCLUDE_DIR" -DOPENSSL_CRYPTO_LIBRARY="$env:OPENSSL_CRYPTO_LIBRARY" -DOPENSSL_USE_STATIC_LIBS=TRUE -DOPENSSL_MSVC_STATIC_RT=TRUE -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
       - name: Compile game and tools on Windows
         run: cmake --build build --config Release --parallel
