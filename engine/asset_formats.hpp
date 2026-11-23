@@ -1,11 +1,5 @@
 #pragma once
-#define CloseWindow RaylibCloseWindow
-#define ShowCursor RaylibShowCursor
-#define DrawText RaylibDrawText
 #include "raylib.h"
-#undef DrawText
-#undef ShowCursor
-#undef CloseWindow
 #include <cstdint>
 #include <string>
 #include <vector>
