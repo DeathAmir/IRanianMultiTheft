@@ -32,7 +32,7 @@ jobs:
           echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Install Windows OpenSSL
-        run: "$HOME/vcpkg/vcpkg" install openssl:x64-mingw-static
+        run: '$HOME/vcpkg/vcpkg install openssl:x64-mingw-static'
 
       - name: Configure Windows x64
         shell: bash
