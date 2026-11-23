@@ -198,19 +198,19 @@ int main(int argc,char** argv) {
   if(playerMoving) {
    Vector3 step=Vector3Scale(Vector3Normalize(movement),(IsKeyDown(KEY_LEFT_SHIFT)?9.0f:5.8f)*dt);
    footstepTimer+=dt;
-   if(gAudioReady&&gFootstepSound.frameCount>0&&footstepTimer>=0.42f) { PlaySound(GetRandomValue(0,1)==0||gFootstepSoundAlt.frameCount==0?gFootstepSound:gFootstepSoundAlt); footstepTimer=0.0f; }
+   if(gAudioReady&&gFootstepSound.frameCount>0&&footstepTimer>=0.42f) { RaylibPlaySound(GetRandomValue(0,1)==0||gFootstepSoundAlt.frameCount==0?gFootstepSound:gFootstepSoundAlt); footstepTimer=0.0f; }
    Vector3 nextX={Clamp(playerPos.x+step.x,-37,37),0,playerPos.z};
    Vector3 nextZ={playerPos.x,0,Clamp(playerPos.z+step.z,-37,37)};
    if(CanStand(nextX,world)) playerPos.x=nextX.x;
    if(CanStand(nextZ,world)) playerPos.z=nextZ.z;
   }
   else footstepTimer=0.0f;
-  if(IsKeyPressed(KEY_R)&&ammo<30&&reserve>0&&!reloading) { reloading=true; reloadTimer=1.25f; if(gAudioReady&&gReloadSound.frameCount>0) PlaySound(gReloadSound); }
+  if(IsKeyPressed(KEY_R)&&ammo<30&&reserve>0&&!reloading) { reloading=true; reloadTimer=1.25f; if(gAudioReady&&gReloadSound.frameCount>0) RaylibPlaySound(gReloadSound); }
   if(reloading) { reloadTimer-=dt; if(reloadTimer<=0) { int load=std::min(30-ammo,reserve); ammo+=load; reserve-=load; reloading=false; } }
   if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)&&!reloading&&shotCooldown<=0&&ammo>0) {
-   ammo--; shotCooldown=0.12f; weaponRecoil=0.10f; if(gAudioReady&&gGunshotSound.frameCount>0) PlaySound(gGunshotSound); Vector3 aim={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)}; Ray ray={Vector3Add(playerPos,{0,1.55f,0}),aim}; float nearest=1000; int selected=-1;
+   ammo--; shotCooldown=0.12f; weaponRecoil=0.10f; if(gAudioReady&&gGunshotSound.frameCount>0) RaylibPlaySound(gGunshotSound); Vector3 aim={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)}; Ray ray={Vector3Add(playerPos,{0,1.55f,0}),aim}; float nearest=1000; int selected=-1;
    for(size_t i=0;i<targets.size();i++) if(targets[i].active) { BoundingBox box={{targets[i].position.x-0.48f,0,targets[i].position.z-0.35f},{targets[i].position.x+0.48f,1.9f,targets[i].position.z+0.35f}}; RayCollision hit=GetRayCollisionBox(ray,box); if(hit.hit&&hit.distance<nearest){nearest=hit.distance;selected=(int)i;} }
-   if(selected>=0) { if(gAudioReady&&gImpactSound.frameCount>0) PlaySound(gImpactSound); targets[selected].health-=34; if(targets[selected].health<=0) { targets[selected].active=false; kills++; } }
+   if(selected>=0) { if(gAudioReady&&gImpactSound.frameCount>0) RaylibPlaySound(gImpactSound); targets[selected].health-=34; if(targets[selected].health<=0) { targets[selected].active=false; kills++; } }
   }
   if(IsKeyPressed(KEY_F)&&health<100) health=std::min(100.0f,health+25.0f);
   sendTimer+=dt; if(connected&&serverPeer&&sendTimer>=0.05f) { sendTimer=0; NetPacket p{PacketMagic,1,{0,0,0},0,playerPos.x,playerPos.z,yaw}; ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED); if(packet) enet_peer_send(serverPeer,0,packet); enet_host_flush(client); }
