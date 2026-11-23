@@ -13,8 +13,8 @@ foreach ($item in $downloads) {
     if (!(Test-Path -LiteralPath $item.Path) -or (Get-Item -LiteralPath $item.Path).Length -lt $item.MinBytes) {
         Invoke-WebRequest -Uri $item.Url -OutFile $item.Path
     }
-    if (!(Test-Path $item.Path) -or (Get-Item $item.Path).Length -lt $item.MinBytes) {
+    if (!(Test-Path -LiteralPath $item.Path) -or (Get-Item -LiteralPath $item.Path).Length -lt $item.MinBytes) {
         throw "Asset download validation failed: $($item.Path)"
     }
-    Write-Host "Downloaded and verified $($item.Path) ($((Get-Item $item.Path).Length) bytes)"
+    Write-Host "Downloaded and verified $($item.Path) ($((Get-Item -LiteralPath $item.Path).Length) bytes)"
 }
