@@ -29,7 +29,9 @@ add_executable(ires_editor tools/ires_editor.cpp)
 target_link_libraries(ires_editor PRIVATE ires_engine)
 
 add_executable(ires_packer tools/ires_packer.cpp engine/asset_formats.cpp)
-target_include_directories(ires_packer PRIVATE engine)\ntarget_link_libraries(ires_packer PRIVATE raylib)\nadd_dependencies(irantheft ires_packer)
+target_include_directories(ires_packer PRIVATE engine)
+target_link_libraries(ires_packer PRIVATE raylib)
+add_dependencies(irantheft ires_packer)
 
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 
