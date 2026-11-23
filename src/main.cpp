@@ -7,6 +7,7 @@
 #define DrawText Win32DrawText
 #include <enet/enet.h>
 #undef DrawText
+#undef DrawTextEx
 #undef ShowCursor
 #undef CloseWindow
 #include <algorithm>
