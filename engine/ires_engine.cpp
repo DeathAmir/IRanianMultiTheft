@@ -1,5 +1,6 @@
 #include "ires_engine.hpp"
-#include "raymath.h"\n#include <cmath>
+#include "raymath.h"
+#include <cmath>
 
 namespace ires {
 bool Engine::Initialize(int width,int height,const char* title) {
