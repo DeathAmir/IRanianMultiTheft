@@ -11,28 +11,65 @@ Binary layout (little-endian integers):
 5. 64-byte Ed25519 signature
 6. Original payload bytes
 
-The signature authenticates the 18-byte header prefix (magic, version, type and payload length) and the complete payload. Verification uses the public key compiled into `engine/trusted_public_key.hpp`. Private signing keys must never be committed or distributed with the game.
+The signature authenticates the 18-byte header prefix (magic, version, type and payload length) plus the complete payload. Verification uses the public key compiled into `engine/trusted_public_key.hpp`. Private signing keys must never be committed or distributed with the game.
 
-The game runtime accepts model, texture and script payloads from IREMG only through the signed IRESA verification functions. The script helper returns verified source bytes; this repository does not yet include a script VM/execution environment.
+The game runtime loads model and texture assets only from signed IRESA entries inside IREMG. It has no unsigned fallback. The script helper verifies the signature and returns source bytes; a script VM/execution environment is not yet part of this build.
 
-## Key generation
+## MSYS2 UCRT64 setup
 
-Build `ires_signer`, then:
-
-```bash
-./build/ires_signer keygen ires_private.pem engine/trusted_public_key.hpp
-```
-
-This writes a private Ed25519 PEM key and replaces the trusted public-key header. Rebuild the game/editor/signer after generating the header. Keep the private key offline and back it up securely.
-
-## Signing
+Open the **MSYS2 UCRT64** terminal, then install the compiler, CMake, Ninja and OpenSSL:
 
 ```bash
-./build/ires_signer sign ires_private.pem assets/models/player.irem assets/signed/models/player.iresa model
-./build/ires_signer sign ires_private.pem assets/textures/concrete.iret assets/signed/textures/concrete.iresa texture
-./build/ires_signer sign ires_private.pem scripts/example.lua assets/signed/scripts/example.iresa script
+pacman -S --needed git mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-openssl
 ```
 
-Pack the `assets` directory into IREMG after signing. The game expects signed entries under `signed/models` and `signed/textures`. Do not package the private key.
+From the repository root:
 
-If you rotate the key, regenerate the public header, rebuild all trusted binaries, and re-sign every asset. Anyone with access to the private key can create assets accepted by the corresponding public-key build.
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j8
+```
+
+## Generate your signing key
+
+Run this once:
+
+```bash
+./build/ires_signer.exe keygen ires_private.pem engine/trusted_public_key.hpp
+```
+
+This creates your private Ed25519 key and writes its matching public key into the engine header. **Never upload, commit, or share `ires_private.pem`.** Back it up offline. The public header is not secret: commit it to your repository, then rebuild:
+
+```bash
+cmake --build build -j8
+```
+
+The game binaries built after this step trust assets signed by this key. If you generate a different key later, all trusted binaries and signed assets must be rebuilt/re-signed.
+
+## Sign models, textures and scripts
+
+```bash
+mkdir -p assets/signed/models assets/signed/textures assets/signed/scripts
+./build/ires_signer.exe sign ires_private.pem assets/models/player.irem assets/signed/models/player.iresa model
+./build/ires_signer.exe sign ires_private.pem assets/models/sedan.irem assets/signed/models/sedan.iresa model
+./build/ires_signer.exe sign ires_private.pem assets/models/building.irem assets/signed/models/building.iresa model
+./build/ires_signer.exe sign ires_private.pem assets/textures/concrete.iret assets/signed/textures/concrete.iresa texture
+./build/ires_signer.exe sign ires_private.pem scripts/example.lua assets/signed/scripts/example.iresa script
+```
+
+The script command is optional; the input script must exist. Pack signed assets into IREMG by re-running CMake configure and building:
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j8
+```
+
+Verify a signed asset against the embedded trusted public key:
+
+```bash
+./build/ires_signer.exe verify assets/signed/models/player.iresa model
+```
+
+The signer can also be used with MSVC builds from `build/Release/ires_signer.exe`.
+
+Anyone with access to the private key can create assets accepted by binaries containing the corresponding public key. For production, keep the private key in an offline signing environment or protected CI secret, and rotate it if compromised.
