@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "../engine/ires_engine.hpp"
 #include "../engine/world.hpp"
 #include "raymath.h"
