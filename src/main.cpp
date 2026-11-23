@@ -45,6 +45,17 @@ int RunServer(int port) {
  }
  enet_host_destroy(server); enet_deinitialize(); return 0;
 }
+bool CanStand(Vector3 position,const std::vector<ires::Primitive>& world) {
+ const float radius=0.42f;
+ for(const auto& p:world) {
+  if(p.size.y<0.8f||p.position.y<0.0f) continue;
+  const float x=Clamp(position.x,p.position.x-p.size.x*0.5f,p.position.x+p.size.x*0.5f);
+  const float z=Clamp(position.z,p.position.z-p.size.z*0.5f,p.position.z+p.size.z*0.5f);
+  const float dx=position.x-x,dz=position.z-z;
+  if(dx*dx+dz*dz<radius*radius) return false;
+ }
+ return true;
+}
 void DrawSoldier(Vector3 p,float yaw,bool enemy=false) {
  const Color body=enemy?Color{176,62,54,255}:Color{58,112,166,255};
  DrawCube({p.x,p.y+0.95f,p.z},0.62f,0.95f,0.38f,body);
@@ -81,12 +92,17 @@ int main(int argc,char** argv) {
   }
   if(splash) { splashTimer+=dt; if(IsKeyPressed(KEY_ENTER)||splashTimer>2.8f) splash=false; engine.BeginFrame(Color{10,13,22,255}); int w=GetScreenWidth(),h=GetScreenHeight(); DrawCircleGradient(w/2,h/2,220,Color{28,54,89,255},Color{10,13,22,0}); DrawText("IRANTHEFT",w/2-230,h/2-95,64,GOLD); DrawText("TACTICAL MULTIPLAYER",w/2-175,h/2-15,25,RAYWHITE); DrawText("IRES ENGINE",w/2-80,h/2+35,18,Color{110,190,255,255}); DrawText("PRESS ENTER TO DEPLOY",w/2-125,h-54,16,Fade(RAYWHITE,0.8f)); engine.EndFrame(); continue; }
   if(IsKeyPressed(KEY_ESCAPE)) break;
-  Vector2 mouse=GetMouseDelta(); yaw-=mouse.x*0.0032f; pitch=Clamp(pitch-mouse.y*0.0026f,-0.48f,0.42f);
+  Vector2 mouse=GetMouseDelta(); yaw+=mouse.x*0.0032f; pitch=Clamp(pitch-mouse.y*0.0026f,-0.48f,0.42f);
   Vector3 forward={sinf(yaw),0,-cosf(yaw)},right={cosf(yaw),0,sinf(yaw)},movement={0,0,0};
   if(IsKeyDown(KEY_W)) movement=Vector3Add(movement,forward); if(IsKeyDown(KEY_S)) movement=Vector3Subtract(movement,forward);
   if(IsKeyDown(KEY_D)) movement=Vector3Add(movement,right); if(IsKeyDown(KEY_A)) movement=Vector3Subtract(movement,right);
-  if(Vector3Length(movement)>0.01f) playerPos=Vector3Add(playerPos,Vector3Scale(Vector3Normalize(movement),(IsKeyDown(KEY_LEFT_SHIFT)?9.0f:5.8f)*dt));
-  playerPos.x=Clamp(playerPos.x,-37,37); playerPos.z=Clamp(playerPos.z,-37,37);
+  if(Vector3Length(movement)>0.01f) {
+   Vector3 step=Vector3Scale(Vector3Normalize(movement),(IsKeyDown(KEY_LEFT_SHIFT)?9.0f:5.8f)*dt);
+   Vector3 nextX={Clamp(playerPos.x+step.x,-37,37),0,playerPos.z};
+   Vector3 nextZ={playerPos.x,0,Clamp(playerPos.z+step.z,-37,37)};
+   if(CanStand(nextX,world)) playerPos.x=nextX.x;
+   if(CanStand(nextZ,world)) playerPos.z=nextZ.z;
+  }
   if(IsKeyPressed(KEY_R)&&ammo<30&&reserve>0&&!reloading) { reloading=true; reloadTimer=1.25f; }
   if(reloading) { reloadTimer-=dt; if(reloadTimer<=0) { int load=std::min(30-ammo,reserve); ammo+=load; reserve-=load; reloading=false; } }
   if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)&&!reloading&&shotCooldown<=0&&ammo>0) {
