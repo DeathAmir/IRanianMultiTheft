@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -24,8 +25,41 @@ namespace {
 Font gUiFont{};
 Model gSoldierModel{};
 Model gWeaponModel{};
+ModelAnimation* gSoldierAnimations=nullptr;
+int gSoldierAnimationCount=0;
+int gIdleAnimation=-1;
+int gMoveAnimation=-1;
+int gCurrentAnimation=-1;
+float gAnimationClock=0.0f;
+Sound gGunshotSound{};
+Sound gReloadSound{};
+Sound gFootstepSound{};
+Sound gImpactSound{};
+bool gAudioReady=false;
 bool gHasSoldierModel=false;
 bool gHasWeaponModel=false;
+bool gHasAnimations=false;
+int FindAnimation(const char* token) {
+ if(!gSoldierAnimations||!token) return -1;
+ for(int i=0;i<gSoldierAnimationCount;i++) {
+  if(!IsModelAnimationValid(gSoldierModel,gSoldierAnimations[i])) continue;
+  std::string name=gSoldierAnimations[i].name;
+  std::transform(name.begin(),name.end(),name.begin(),[](unsigned char ch){return (char)std::tolower(ch);});
+  if(name.find(token)!=std::string::npos) return i;
+ }
+ return -1;
+}
+void UpdateSoldierAnimation(bool moving,float dt) {
+ if(!gHasAnimations) return;
+ int selected=moving&&gMoveAnimation>=0?gMoveAnimation:gIdleAnimation;
+ if(selected<0) selected=gIdleAnimation>=0?gIdleAnimation:0;
+ if(selected<0||selected>=gSoldierAnimationCount) return;
+ if(selected!=gCurrentAnimation) { gCurrentAnimation=selected; gAnimationClock=0.0f; }
+ const int frames=gSoldierAnimations[selected].frameCount;
+ if(frames<=0) return;
+ gAnimationClock+=dt*24.0f;
+ UpdateModelAnimation(gSoldierModel,gSoldierAnimations[selected],(int)gAnimationClock%frames);
+}
 void UiText(const char* text,int x,int y,float size,Color color) {
  if(gUiFont.texture.id>0) DrawTextEx(gUiFont,text,{(float)x,(float)y},size,1.0f,color);
  else DrawText(text,x,y,(int)size,color);
@@ -92,20 +126,42 @@ int main(int argc,char** argv) {
  const std::string base=GetApplicationDirectory();
  gUiFont=LoadFontEx((base+"assets/fonts/IBMPlexSans.ttf").c_str(),32,nullptr,0);
  if(gUiFont.texture.id>0) SetTextureFilter(gUiFont.texture,TEXTURE_FILTER_BILINEAR);
- gSoldierModel=LoadModel((base+"assets/models/Swat.glb").c_str());
+ gSoldierModel=LoadModel((base+"assets/models/NightStriker.glb").c_str());
+ if(gSoldierModel.meshCount==0) gSoldierModel=LoadModel((base+"assets/models/Swat.glb").c_str());
  gHasSoldierModel=gSoldierModel.meshCount>0;
+ gSoldierAnimations=LoadModelAnimations((base+"assets/models/UniversalAnimations.glb").c_str(),&gSoldierAnimationCount);
+ if(gHasSoldierModel&&gSoldierAnimations&&gSoldierAnimationCount>0) {
+  gIdleAnimation=FindAnimation("idle");
+  gMoveAnimation=FindAnimation("run");
+  if(gMoveAnimation<0) gMoveAnimation=FindAnimation("sprint");
+  if(gMoveAnimation<0) gMoveAnimation=FindAnimation("jog");
+  if(gMoveAnimation<0) gMoveAnimation=FindAnimation("walk");
+  gHasAnimations=gIdleAnimation>=0||gMoveAnimation>=0;
+ }
  gWeaponModel=LoadModel((base+"assets/models/SMG_1.glb").c_str());
  gHasWeaponModel=gWeaponModel.meshCount>0;
+ InitAudioDevice();
+ gAudioReady=IsAudioDeviceReady();
+ if(gAudioReady) {
+  gGunshotSound=LoadSound((base+"assets/audio/gunshot_smg.mp3").c_str());
+  gReloadSound=LoadSound((base+"assets/audio/reload.ogg").c_str());
+  gFootstepSound=LoadSound((base+"assets/audio/footstep.ogg").c_str());
+  gImpactSound=LoadSound((base+"assets/audio/impact.ogg").c_str());
+  SetSoundVolume(gGunshotSound,0.72f);
+  SetSoundVolume(gReloadSound,0.58f);
+  SetSoundVolume(gFootstepSound,0.42f);
+  SetSoundVolume(gImpactSound,0.55f);
+ }
  std::vector<ires::Primitive> world;
  if(!ires::LoadMap(base+"assets/maps/arena.iremap",world)) {
   world.push_back({{0,-0.25f,0},{100,0.5f,100},Color{75,91,72,255}});
   for(int i=-5;i<=5;i++) { world.push_back({{(float)i*8,1,-40},{7.8f,2,1},Color{87,99,112,255}}); world.push_back({{(float)i*8,1,40},{7.8f,2,1},Color{87,99,112,255}}); world.push_back({{-40,1,(float)i*8},{1,2,7.8f},Color{87,99,112,255}}); world.push_back({{40,1,(float)i*8},{1,2,7.8f},Color{87,99,112,255}}); }
  }
  std::vector<Target> targets; for(int i=0;i<8;i++) targets.push_back({{(float)((i%4)-2)*7.0f,0,(float)(i/4)*-15.0f-12.0f},100,true});
- bool splash=true,connected=false,reloading=false; float splashTimer=0,sendTimer=0,yaw=0,pitch=0,health=100,shotCooldown=0,reloadTimer=0; int ammo=30,reserve=120,kills=0;
+ bool splash=true,connected=false,reloading=false; float splashTimer=0,sendTimer=0,yaw=0,pitch=0,health=100,shotCooldown=0,reloadTimer=0,footstepTimer=0,weaponRecoil=0; int ammo=30,reserve=120,kills=0;
  Vector3 playerPos{0,0,7}; std::map<uint32_t,RemotePlayer> remotes; DisableCursor();
  while(!WindowShouldClose()) {
-  const float dt=GetFrameTime(); shotCooldown=std::max(0.0f,shotCooldown-dt);
+  const float dt=GetFrameTime(); shotCooldown=std::max(0.0f,shotCooldown-dt); weaponRecoil=std::max(0.0f,weaponRecoil-dt*0.75f);
   ENetEvent event{};
   while(enet_host_service(client,&event,0)>0) {
    if(event.type==ENET_EVENT_TYPE_CONNECT) connected=true;
@@ -118,24 +174,29 @@ int main(int argc,char** argv) {
   Vector3 forward={sinf(yaw),0,-cosf(yaw)},right={cosf(yaw),0,sinf(yaw)},movement={0,0,0};
   if(IsKeyDown(KEY_W)) movement=Vector3Add(movement,forward); if(IsKeyDown(KEY_S)) movement=Vector3Subtract(movement,forward);
   if(IsKeyDown(KEY_D)) movement=Vector3Add(movement,right); if(IsKeyDown(KEY_A)) movement=Vector3Subtract(movement,right);
-  if(Vector3Length(movement)>0.01f) {
+  const bool playerMoving=Vector3Length(movement)>0.01f;
+  if(playerMoving) {
    Vector3 step=Vector3Scale(Vector3Normalize(movement),(IsKeyDown(KEY_LEFT_SHIFT)?9.0f:5.8f)*dt);
+   footstepTimer+=dt;
+   if(gAudioReady&&gFootstepSound.frameCount>0&&footstepTimer>=0.42f) { PlaySound(gFootstepSound); footstepTimer=0.0f; }
    Vector3 nextX={Clamp(playerPos.x+step.x,-37,37),0,playerPos.z};
    Vector3 nextZ={playerPos.x,0,Clamp(playerPos.z+step.z,-37,37)};
    if(CanStand(nextX,world)) playerPos.x=nextX.x;
    if(CanStand(nextZ,world)) playerPos.z=nextZ.z;
   }
-  if(IsKeyPressed(KEY_R)&&ammo<30&&reserve>0&&!reloading) { reloading=true; reloadTimer=1.25f; }
+  else footstepTimer=0.0f;
+  if(IsKeyPressed(KEY_R)&&ammo<30&&reserve>0&&!reloading) { reloading=true; reloadTimer=1.25f; if(gAudioReady&&gReloadSound.frameCount>0) PlaySound(gReloadSound); }
   if(reloading) { reloadTimer-=dt; if(reloadTimer<=0) { int load=std::min(30-ammo,reserve); ammo+=load; reserve-=load; reloading=false; } }
   if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)&&!reloading&&shotCooldown<=0&&ammo>0) {
-   ammo--; shotCooldown=0.12f; Vector3 aim={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)}; Ray ray={Vector3Add(playerPos,{0,1.55f,0}),aim}; float nearest=1000; int selected=-1;
+   ammo--; shotCooldown=0.12f; weaponRecoil=0.10f; if(gAudioReady&&gGunshotSound.frameCount>0) PlaySound(gGunshotSound); Vector3 aim={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)}; Ray ray={Vector3Add(playerPos,{0,1.55f,0}),aim}; float nearest=1000; int selected=-1;
    for(size_t i=0;i<targets.size();i++) if(targets[i].active) { BoundingBox box={{targets[i].position.x-0.48f,0,targets[i].position.z-0.35f},{targets[i].position.x+0.48f,1.9f,targets[i].position.z+0.35f}}; RayCollision hit=GetRayCollisionBox(ray,box); if(hit.hit&&hit.distance<nearest){nearest=hit.distance;selected=(int)i;} }
-   if(selected>=0) { targets[selected].health-=34; if(targets[selected].health<=0) { targets[selected].active=false; kills++; } }
+   if(selected>=0) { if(gAudioReady&&gImpactSound.frameCount>0) PlaySound(gImpactSound); targets[selected].health-=34; if(targets[selected].health<=0) { targets[selected].active=false; kills++; } }
   }
   if(IsKeyPressed(KEY_F)&&health<100) health=std::min(100.0f,health+25.0f);
   sendTimer+=dt; if(connected&&serverPeer&&sendTimer>=0.05f) { sendTimer=0; NetPacket p{PacketMagic,1,{0,0,0},0,playerPos.x,playerPos.z,yaw}; ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED); if(packet) enet_peer_send(serverPeer,0,packet); enet_host_flush(client); }
   Vector3 eye=Vector3Add(playerPos,{0,1.62f,0});
   Vector3 aimDirection={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)};
+  UpdateSoldierAnimation(playerMoving,dt);
   engine.Camera().position=eye;
   engine.Camera().target=Vector3Add(eye,aimDirection);
   engine.Camera().up={0,1,0};
@@ -145,8 +206,8 @@ int main(int argc,char** argv) {
   for(const auto& t:targets) if(t.active) DrawSoldier(t.position,0.0f,true);
   for(const auto& e:remotes) DrawSoldier(e.second.position,e.second.yaw,true);
   if(gHasWeaponModel) {
-   Vector3 weaponPosition=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.28f),Vector3Add(Vector3Scale(aimDirection,0.62f),Vector3{0,-0.25f,0})));
-   DrawModelEx(gWeaponModel,weaponPosition,{0,1,0},yaw*RAD2DEG,{0.34f,0.34f,0.34f},WHITE);
+   Vector3 weaponPosition=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.34f),Vector3Add(Vector3Scale(aimDirection,0.76f-weaponRecoil),Vector3{0,-0.29f,0})));
+   DrawModelEx(gWeaponModel,weaponPosition,{0,1,0},yaw*RAD2DEG+180.0f,{0.31f,0.31f,0.31f},WHITE);
   }
   engine.End3D();
   int sw=GetScreenWidth(),sh=GetScreenHeight(); DrawRectangle(18,18,310,112,Fade(Color{9,14,22,255},0.82f)); UiText("IRANTHEFT  /  TACTICAL",32,28,18,GOLD); UiText(connected?"ONLINE  |  CONNECTED":"OFFLINE  |  LOCAL TRAINING",32,55,13,connected?LIME:ORANGE); UiText(TextFormat("KILLS  %02i     PLAYERS  %02i",kills,1+(int)remotes.size()),32,82,15,RAYWHITE);
@@ -156,7 +217,15 @@ int main(int argc,char** argv) {
  }
  EnableCursor();
  if(gHasWeaponModel) UnloadModel(gWeaponModel);
+ if(gSoldierAnimations&&gSoldierAnimationCount>0) UnloadModelAnimations(gSoldierAnimations,gSoldierAnimationCount);
  if(gHasSoldierModel) UnloadModel(gSoldierModel);
+ if(gAudioReady) {
+  if(gGunshotSound.frameCount>0) UnloadSound(gGunshotSound);
+  if(gReloadSound.frameCount>0) UnloadSound(gReloadSound);
+  if(gFootstepSound.frameCount>0) UnloadSound(gFootstepSound);
+  if(gImpactSound.frameCount>0) UnloadSound(gImpactSound);
+  CloseAudioDevice();
+ }
  if(gUiFont.texture.id>0) UnloadFont(gUiFont);
  if(serverPeer&&serverPeer->state==ENET_PEER_STATE_CONNECTED) enet_peer_disconnect(serverPeer,0); enet_host_flush(client); engine.Shutdown(); enet_host_destroy(client); enet_deinitialize(); return 0;
 }
