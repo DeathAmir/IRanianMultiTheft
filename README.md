@@ -1,21 +1,45 @@
 # IRanianMultiTheft — IRES ENGINE
 
-A C++17 third-person open-world multiplayer game foundation powered by **IRES ENGINE**, a custom 3D engine and asset pipeline built for this project.
+A Windows-first C++17 multiplayer tactical-shooter foundation powered by IRES ENGINE.
 
-## Components
+## Current playable prototype
 
-- **IRES Engine** — raylib-backed 3D renderer, camera and runtime.
-- **IREM** — project-native model format (v1), currently box-based primitive meshes.
-- **IRET** — project-native material/texture format (v1), currently solid RGBA materials.
-- **IREMG** — packed game archive (v1), stores all asset files in one binary container.
-- **IRESA** — Ed25519-signed model, texture and script asset envelope; unsigned game assets are rejected by the runtime.
-- **IRES Signer** — creates Ed25519 keys, signs files and verifies signatures.
-- **IRES Asset Editor** — opens IREM models, adds/removes box parts, rotates, zooms and saves.
-- **IRES Asset Packer** — packs the assets directory into game.iremg.
-- Branded splash screen and a small third-person multiplayer test world.
-- ENet dedicated server/client snapshot replication foundation.
+- Third-person tactical shooter controls with corrected forward axis: W moves toward world -Z at zero yaw; S moves backward; A/D strafe relative to facing.
+- Mouse look, sprint, crosshair aiming, hitscan target practice, ammunition, reload, health and medkit controls.
+- Procedural low-poly soldier, rifle, targets, cover and a small enclosed training arena.
+- ENet dedicated-server/client position replication prototype.
+- Scene-based arena loaded from `assets/maps/arena.iremap`.
 
-The initial player, sedan and downtown building are original low-poly primitive assets created for this repository. External libraries selected for future imports are Quaternius and Kenney; see [asset licensing notes](assets/licenses/ASSETS.md). Their original pack files have not yet been imported into the repository. No GTA/Rockstar files are included.
+## IRES World Editor
+
+Build and run:
+
+```powershell
+.\build\Release\ires_map_editor.exe assets\maps\arena.iremap
+```
+
+Controls:
+- Right mouse drag: orbit camera
+- Mouse wheel: zoom
+- WASD: pan across the map
+- Left click: select an object
+- N: add a box at the editor focus
+- Delete: remove selected object
+- Arrow keys: move selected object
+- +/-: resize selected object
+- 1 / 2 / 3: change selected object material color
+- Ctrl+S: save the map
+- Esc: exit
+
+The map format is plain-text `IREMAP 1`. Every `box` record stores position, size and RGBA color. The editor is an early blockout editor; mesh import, terrain sculpting, undo/redo, object hierarchies and collision authoring are not implemented yet.
+
+## Other tools
+
+```powershell
+.\build\Release\ires_editor.exe assets\models\player.irem
+.\build\Release\ires_packer.exe assets game.iremg
+.\build\Release\ires_signer.exe
+```
 
 ## Build Windows x64
 
@@ -27,7 +51,7 @@ cmake --build build --config Release --parallel 8
 .\build\Release\irantheft.exe
 ```
 
-CMake downloads raylib 5.5 and ENet 1.3.18 at configure time and requires OpenSSL Crypto for IRESA Ed25519 signatures. The Windows workflow uses eight parallel build jobs and uploads the game, editor, packer, packed archive and loose assets.
+The build fetches raylib 5.5 and ENet 1.3.18 and links OpenSSL Crypto for IRESA signatures. The GitHub Actions workflow builds on Windows, uploads available intermediate game outputs, and then packages the launcher in a separate job.
 
 ## Run a dedicated server
 
@@ -35,7 +59,7 @@ CMake downloads raylib 5.5 and ENet 1.3.18 at configure time and requires OpenSS
 .\build\Release\irantheft.exe --server 27880
 ```
 
-Allow inbound UDP traffic on port 27880.
+Allow inbound UDP port 27880.
 
 ## Connect a client
 
@@ -43,33 +67,23 @@ Allow inbound UDP traffic on port 27880.
 .\build\Release\irantheft.exe --connect 127.0.0.1:27880
 ```
 
-## Tools
+## Controls
 
-```powershell
-.\build\Release\ires_editor.exe assets\models\player.irem
-.\build\Release\ires_packer.exe assets game.iremg
-```
-
-Editor controls: Left/Right rotate, mouse wheel zoom, N adds a box, Delete removes the last box, S saves the IREM file.
-
-## Game controls
-
-- WASD: move / drive
-- E: enter or leave the nearby car
-- Enter: skip splash screen
+- WASD: move relative to facing
+- Mouse: aim / rotate camera
+- Left mouse: fire
+- R: reload
+- Left Shift: sprint
+- F: restore 25 health
+- Enter: skip splash
 - Esc: exit
 
-## Format specifications
+## Asset and source licenses
 
-See [IRES_FORMATS.md](docs/IRES_FORMATS.md) for IREM, IRET and IREMG v1 layouts and [IRESA_SIGNATURES.md](docs/IRESA_SIGNATURES.md) for signed assets, key generation and signing.
+The project's own source is Apache-2.0. Third-party code and assets retain their original licenses. See [THIRD_PARTY_NOTICES.md](assets/licenses/THIRD_PARTY_NOTICES.md) for raylib, ENet, OpenSSL and researched CC0 asset sources.
 
-## Current scope
+Important: no external character, weapon, font or animation pack has been imported into this commit. The current soldier, rifle, targets and map props are procedural geometry. The game uses raylib's built-in font. Kenney and Quaternius packs are documented as possible CC0 sources, not falsely presented as bundled assets.
 
-This is an engine foundation, not yet a complete GTA-scale engine. IREM currently stores box primitives rather than arbitrary vertex/index meshes; IRET stores solid-color materials rather than image maps; IREMG is uncompressed. The editor is a lightweight primitive editor, not a full scene/animation suite. The ENet layer is an early position-snapshot prototype, not production authoritative multiplayer. FBX/glTF import, skeletal animation, physics, lighting/shadows, world streaming, account services, and robust network validation remain future milestones.
+## Current limitations
 
-## Dependencies
-
-- raylib 5.5 — zlib/libpng
-- ENet 1.3.18 — MIT
-
-See upstream licenses and the repository's asset license notes.
+This is a playable gameplay prototype, not a finished commercial shooter. Multiplayer currently replicates player positions only; shooting, health, inventory, match state and anti-cheat are not server-authoritative. Enemy AI, animated imported characters, real weapon models, skeletal animation, audio, advanced lighting, physics, terrain tools, glTF import, world streaming, matchmaking and production network security still need implementation.
