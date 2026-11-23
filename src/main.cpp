@@ -51,16 +51,16 @@ int FindAnimation(const char* token) {
  }
  return -1;
 }
-void UpdateSoldierAnimation(bool moving,float dt) {
+void AdvanceSoldierAnimation(float dt) {
+ if(gHasAnimations) gAnimationClock+=dt*24.0f;
+}
+void ApplySoldierAnimation(bool moving) {
  if(!gHasAnimations) return;
  int selected=moving&&gMoveAnimation>=0?gMoveAnimation:gIdleAnimation;
  if(selected<0) selected=gIdleAnimation>=0?gIdleAnimation:0;
  if(selected<0||selected>=gSoldierAnimationCount) return;
- if(selected!=gCurrentAnimation) { gCurrentAnimation=selected; gAnimationClock=0.0f; }
  const int frames=gSoldierAnimations[selected].frameCount;
- if(frames<=0) return;
- gAnimationClock+=dt*24.0f;
- UpdateModelAnimation(gSoldierModel,gSoldierAnimations[selected],(int)gAnimationClock%frames);
+ if(frames>0) UpdateModelAnimation(gSoldierModel,gSoldierAnimations[selected],(int)gAnimationClock%frames);
 }
 void DrawFirstPersonArms(Vector3 eye,Vector3 right,Vector3 forward,float reloadDrop) {
  Vector3 rightElbow=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.56f),Vector3Add(Vector3Scale(forward,0.18f),Vector3{0,-0.55f-reloadDrop*0.35f,0})));
@@ -83,7 +83,7 @@ void UiText(const char* text,int x,int y,float size,Color color) {
 constexpr int DefaultPort=27880;
 constexpr uint32_t PacketMagic=0x49524553;
 struct NetPacket { uint32_t magic; uint8_t type; uint8_t reserved[3]; uint32_t playerId; float x,z,yaw; };
-struct RemotePlayer { Vector3 position{}; float yaw=0; };
+struct RemotePlayer { Vector3 position{}; float yaw=0; bool moving=false; };
 struct Target { Vector3 position{}; float health=100.0f; bool active=true; };
 int RunServer(int port) {
  if(enet_initialize()!=0) return 1;
@@ -117,8 +117,9 @@ bool CanStand(Vector3 position,const std::vector<ires::Primitive>& world) {
  }
  return true;
 }
-void DrawSoldier(Vector3 p,float yaw,bool enemy=false) {
+void DrawSoldier(Vector3 p,float yaw,bool enemy=false,bool moving=false) {
  if(gHasSoldierModel) {
+  ApplySoldierAnimation(moving);
   DrawModelEx(gSoldierModel,{p.x,p.y,p.z},{0,1,0},yaw*RAD2DEG,{1.0f,1.0f,1.0f},WHITE);
   return;
  }
@@ -184,7 +185,7 @@ int main(int argc,char** argv) {
   while(enet_host_service(client,&event,0)>0) {
    if(event.type==ENET_EVENT_TYPE_CONNECT) connected=true;
    else if(event.type==ENET_EVENT_TYPE_DISCONNECT) connected=false;
-   else if(event.type==ENET_EVENT_TYPE_RECEIVE) { if(event.packet->dataLength==sizeof(NetPacket)) { NetPacket p{}; std::memcpy(&p,event.packet->data,sizeof(p)); if(p.magic==PacketMagic&&p.type==2) remotes[p.playerId]={{p.x,0,p.z},p.yaw}; if(p.magic==PacketMagic&&p.type==3) remotes.erase(p.playerId); } enet_packet_destroy(event.packet); }
+   else if(event.type==ENET_EVENT_TYPE_RECEIVE) { if(event.packet->dataLength==sizeof(NetPacket)) { NetPacket p{}; std::memcpy(&p,event.packet->data,sizeof(p)); if(p.magic==PacketMagic&&p.type==2) { auto& remote=remotes[p.playerId]; Vector3 next={p.x,0,p.z}; remote.moving=Vector3Distance(remote.position,next)>0.015f; remote.position=next; remote.yaw=p.yaw; } if(p.magic==PacketMagic&&p.type==3) remotes.erase(p.playerId); } enet_packet_destroy(event.packet); }
   }
   if(splash) { splashTimer+=dt; if(IsKeyPressed(KEY_ENTER)||splashTimer>2.8f) splash=false; engine.BeginFrame(Color{10,13,22,255}); int w=GetScreenWidth(),h=GetScreenHeight(); DrawCircleGradient(w/2,h/2,220,Color{28,54,89,255},Color{10,13,22,0}); UiText("IRANTHEFT",w/2-230,h/2-95,64,GOLD); UiText("TACTICAL MULTIPLAYER",w/2-175,h/2-15,25,RAYWHITE); UiText("IRES ENGINE",w/2-80,h/2+35,18,Color{110,190,255,255}); UiText("PRESS ENTER TO DEPLOY",w/2-125,h-54,16,Fade(RAYWHITE,0.8f)); engine.EndFrame(); continue; }
   if(IsKeyPressed(KEY_ESCAPE)) break;
@@ -214,15 +215,15 @@ int main(int argc,char** argv) {
   sendTimer+=dt; if(connected&&serverPeer&&sendTimer>=0.05f) { sendTimer=0; NetPacket p{PacketMagic,1,{0,0,0},0,playerPos.x,playerPos.z,yaw}; ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED); if(packet) enet_peer_send(serverPeer,0,packet); enet_host_flush(client); }
   Vector3 eye=Vector3Add(playerPos,{0,1.62f,0});
   Vector3 aimDirection={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)};
-  UpdateSoldierAnimation(playerMoving,dt);
+  AdvanceSoldierAnimation(dt);
   engine.Camera().position=eye;
   engine.Camera().target=Vector3Add(eye,aimDirection);
   engine.Camera().up={0,1,0};
   engine.Camera().fovy=76.0f;
   engine.BeginFrame(Color{113,158,190,255}); engine.Begin3D(); DrawPlane({0,-0.08f,0},{120,120},Color{67,83,68,255}); DrawGrid(60,2);
   for(const auto& p:world) { DrawCube(p.position,p.size.x,p.size.y,p.size.z,p.color); DrawCubeWires(p.position,p.size.x,p.size.y,p.size.z,Fade(BLACK,0.12f)); }
-  for(const auto& t:targets) if(t.active) DrawSoldier(t.position,0.0f,true);
-  for(const auto& e:remotes) DrawSoldier(e.second.position,e.second.yaw,true);
+  for(const auto& t:targets) if(t.active) DrawSoldier(t.position,0.0f,true,false);
+  for(const auto& e:remotes) DrawSoldier(e.second.position,e.second.yaw,true,e.second.moving);
   const float reloadDrop=reloading?0.14f:0.0f;
   rlDisableDepthTest();
   DrawFirstPersonArms(eye,right,forward,reloadDrop);
