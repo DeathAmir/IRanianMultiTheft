@@ -2,6 +2,7 @@
 #include "../engine/ires_engine.hpp"
 #include "../engine/world.hpp"
 #include "raymath.h"
+#include "rlgl.h"
 #define CloseWindow Win32CloseWindow
 #define ShowCursor Win32ShowCursor
 #define DrawText Win32DrawText
@@ -60,6 +61,20 @@ void UpdateSoldierAnimation(bool moving,float dt) {
  if(frames<=0) return;
  gAnimationClock+=dt*24.0f;
  UpdateModelAnimation(gSoldierModel,gSoldierAnimations[selected],(int)gAnimationClock%frames);
+}
+void DrawFirstPersonArms(Vector3 eye,Vector3 right,Vector3 forward,float reloadDrop) {
+ Vector3 rightElbow=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.56f),Vector3Add(Vector3Scale(forward,0.18f),Vector3{0,-0.55f-reloadDrop*0.35f,0})));
+ Vector3 rightWrist=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.39f),Vector3Add(Vector3Scale(forward,0.62f),Vector3{0,-0.35f-reloadDrop,0})));
+ Vector3 leftElbow=Vector3Add(eye,Vector3Add(Vector3Scale(right,-0.12f),Vector3Add(Vector3Scale(forward,0.16f),Vector3{0,-0.56f-reloadDrop*0.35f,0})));
+ Vector3 leftWrist=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.16f),Vector3Add(Vector3Scale(forward,0.68f),Vector3{0,-0.34f-reloadDrop,0})));
+ Color sleeve={48,58,49,255};
+ Color glove={25,29,28,255};
+ DrawCylinderEx(rightElbow,rightWrist,0.095f,0.068f,12,sleeve);
+ DrawCylinderEx(leftElbow,leftWrist,0.095f,0.068f,12,sleeve);
+ DrawSphere(rightWrist,0.075f,glove);
+ DrawSphere(leftWrist,0.075f,glove);
+ DrawSphere(Vector3Add(rightWrist,Vector3Add(Vector3Scale(forward,0.045f),Vector3Scale(right,-0.035f))),0.034f,glove);
+ DrawSphere(Vector3Add(leftWrist,Vector3Add(Vector3Scale(forward,0.045f),Vector3Scale(right,0.035f))),0.034f,glove);
 }
 void UiText(const char* text,int x,int y,float size,Color color) {
  if(gUiFont.texture.id>0) DrawTextEx(gUiFont,text,{(float)x,(float)y},size,1.0f,color);
@@ -208,10 +223,14 @@ int main(int argc,char** argv) {
   for(const auto& p:world) { DrawCube(p.position,p.size.x,p.size.y,p.size.z,p.color); DrawCubeWires(p.position,p.size.x,p.size.y,p.size.z,Fade(BLACK,0.12f)); }
   for(const auto& t:targets) if(t.active) DrawSoldier(t.position,0.0f,true);
   for(const auto& e:remotes) DrawSoldier(e.second.position,e.second.yaw,true);
+  const float reloadDrop=reloading?0.14f:0.0f;
+  rlDisableDepthTest();
+  DrawFirstPersonArms(eye,right,forward,reloadDrop);
   if(gHasWeaponModel) {
-   Vector3 weaponPosition=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.34f),Vector3Add(Vector3Scale(aimDirection,0.76f-weaponRecoil),Vector3{0,-0.29f,0})));
+   Vector3 weaponPosition=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.34f),Vector3Add(Vector3Scale(aimDirection,0.76f-weaponRecoil),Vector3{0,-0.29f-reloadDrop,0})));
    DrawModelEx(gWeaponModel,weaponPosition,{0,1,0},yaw*RAD2DEG+180.0f,{0.31f,0.31f,0.31f},WHITE);
   }
+  rlEnableDepthTest();
   engine.End3D();
   int sw=GetScreenWidth(),sh=GetScreenHeight(); DrawRectangle(18,18,310,112,Fade(Color{9,14,22,255},0.82f)); UiText("IRANTHEFT  /  TACTICAL",32,28,18,GOLD); UiText(connected?"ONLINE  |  CONNECTED":"OFFLINE  |  LOCAL TRAINING",32,55,13,connected?LIME:ORANGE); UiText(TextFormat("KILLS  %02i     PLAYERS  %02i",kills,1+(int)remotes.size()),32,82,15,RAYWHITE);
   DrawRectangle(22,sh-58,220,12,Fade(BLACK,0.6f)); DrawRectangle(22,sh-58,(int)(220*health/100.0f),12,health>35?LIME:RED); UiText(TextFormat("HP %i",(int)health),250,sh-62,17,RAYWHITE);
