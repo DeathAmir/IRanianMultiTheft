@@ -1,8 +1,11 @@
 name: IRES Windows x64 and NSIS Release
 
-on:
+'on':
   push:
-    branches: [ main, develop, feature/** ]
+    branches:
+      - main
+      - develop
+      - 'feature/**'
   pull_request:
   workflow_dispatch:
 
@@ -17,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install MinGW toolchain
+      - name: Install MinGW and build tools
         run: |
           sudo apt-get update
           sudo apt-get install -y mingw-w64 ninja-build cmake pkg-config
@@ -26,29 +29,32 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
           "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Install Windows OpenSSL
         run: "$HOME/vcpkg/vcpkg" install openssl:x64-mingw-static
 
       - name: Configure Windows x64
+        shell: bash
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
-            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
-            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
-            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
-            -DCMAKE_TOOLCHAIN_FILE="$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc \
+            -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++ \
+            -DCMAKE_RC_COMPILER=/usr/bin/x86_64-w64-mingw32-windres \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-mingw-static \
             -DVCPKG_HOST_TRIPLET=x64-linux \
             -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/cmake/toolchains/mingw64.cmake" \
-            -DOPENSSL_ROOT_DIR="$HOME/vcpkg/installed/x64-mingw-static"
+            -DOPENSSL_ROOT_DIR="$VCPKG_ROOT/installed/x64-mingw-static"
 
       - name: Build Windows binaries
         run: cmake --build build --parallel 4
 
       - name: Stage game files
+        shell: bash
         run: |
           mkdir -p dist/game
           cp build/irantheft.exe dist/game/
@@ -82,12 +88,10 @@ jobs:
           name: ires-windows-x64-game
           path: launcher-resources/game
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: launcher-ui/package.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -96,7 +100,7 @@ jobs:
         shell: pwsh
         run: choco install nsis -y --no-progress
 
-      - name: Install launcher dependencies
+      - name: Install Tauri CLI
         working-directory: launcher-ui
         run: npm install
 
