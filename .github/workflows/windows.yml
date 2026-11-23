@@ -68,6 +68,7 @@ jobs:
           $files = @(
             "build/Release/irantheft.exe",
             "build/Release/ires_editor.exe",
+            "build/Release/ires_map_editor.exe",
             "build/Release/ires_packer.exe",
             "build/Release/ires_signer.exe",
             "build/game.iremg"
@@ -116,6 +117,7 @@ jobs:
             "launcher-resources/game/irantheft.exe",
             "launcher-resources/game/game.iremg",
             "launcher-resources/game/ires_editor.exe",
+            "launcher-resources/game/ires_map_editor.exe",
             "launcher-resources/game/ires_packer.exe",
             "launcher-resources/game/ires_signer.exe",
             "launcher-resources/game/assets"
