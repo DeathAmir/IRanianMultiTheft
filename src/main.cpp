@@ -89,7 +89,7 @@ int main(int argc,char** argv) {
  ENetAddress address{}; address.port=(enet_uint16)port; ENetPeer* serverPeer=nullptr; if(enet_address_set_host(&address,host.c_str())==0) serverPeer=enet_host_connect(client,&address,2,0);
  ires::Engine engine; if(!engine.Initialize(1366,768,"IRAntheft | IRES Tactical Shooter")) { enet_host_destroy(client); enet_deinitialize(); return 1; }
  const std::string base=GetApplicationDirectory();
- gUiFont=LoadFontEx((base+"assets/fonts/IBMPlexSans[wdth,wght].ttf").c_str(),32,nullptr,0);
+ gUiFont=LoadFontEx((base+"assets/fonts/IBMPlexSans.ttf").c_str(),32,nullptr,0);
  if(gUiFont.texture.id>0) SetTextureFilter(gUiFont.texture,TEXTURE_FILTER_BILINEAR);
  gSoldierModel=LoadModel((base+"assets/models/Swat.glb").c_str());
  gHasSoldierModel=gSoldierModel.meshCount>0;
