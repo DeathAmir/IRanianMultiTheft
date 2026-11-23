@@ -9,6 +9,7 @@
 #include <enet/enet.h>
 #undef DrawText
 #undef DrawTextEx
+#undef PlaySound
 #undef ShowCursor
 #undef CloseWindow
 #include <algorithm>
