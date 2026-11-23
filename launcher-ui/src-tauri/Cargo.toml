@@ -5,6 +5,10 @@ description = "IRAntheft multiplayer game launcher"
 authors = ["IRAntheft"]
 edition = "2021"
 
+[lib]
+name = "irantheft_launcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
