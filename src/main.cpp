@@ -135,10 +135,11 @@ int RunServer(int port) {
         for (const auto& item : peerIds) {
             ENetPeer* peer = item.first;
             for (const auto& state : players) {
+                if (state.first == item.second) continue;
                 NetPacket packet{ PacketMagic, 2, { 0, 0, 0 }, state.first,
                                   state.second.position.x, state.second.position.z, state.second.yaw };
                 ENetPacket* outgoing = enet_packet_create(&packet, sizeof(packet), ENET_PACKET_FLAG_UNSEQUENCED);
-                if (outgoing) enet_peer_send(peer, 1, outgoing);
+                if (outgoing) enet_peer_send(peer, 0, outgoing);
             }
         }
         enet_host_flush(server);
