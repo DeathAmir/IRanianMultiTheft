@@ -129,13 +129,13 @@ int main(int argc,char** argv) {
             engine.BeginFrame(Color{10,13,22,255});
             const int w=GetScreenWidth(),h=GetScreenHeight();
             DrawCircleGradient(w/2,h/2,220,Color{28,54,89,255},Color{10,13,22,0});
-            DrawText("IRES",w/2-130,h/2-105,92,GOLD);
-            DrawText("ENGINE",w/2-105,h/2-16,42,RAYWHITE);
-            DrawText("IRANIAN MULTI THEFT",w/2-150,h/2+62,20,Color{110,190,255,255});
+            RaylibDrawText("IRES",w/2-130,h/2-105,92,GOLD);
+            RaylibDrawText("ENGINE",w/2-105,h/2-16,42,RAYWHITE);
+            RaylibDrawText("IRANIAN MULTI THEFT",w/2-150,h/2+62,20,Color{110,190,255,255});
             DrawRectangle(w/2-170,h/2+112,340,5,Fade(RAYWHITE,0.18f));
             DrawRectangle(w/2-170,h/2+112,(int)(340*Clamp(splashTimer/2.8f,0,1)),5,GOLD);
-            DrawText("INITIALIZING WORLD SYSTEMS...",w/2-150,h/2+135,14,LIGHTGRAY);
-            DrawText("PRESS ENTER TO CONTINUE",w/2-115,h-54,15,Fade(RAYWHITE,0.75f));
+            RaylibDrawText("INITIALIZING WORLD SYSTEMS...",w/2-150,h/2+135,14,LIGHTGRAY);
+            RaylibDrawText("PRESS ENTER TO CONTINUE",w/2-115,h-54,15,Fade(RAYWHITE,0.75f));
             engine.EndFrame(); continue;
         }
         const float turn=(IsKeyDown(KEY_A)?-1.0f:0.0f)+(IsKeyDown(KEY_D)?1.0f:0.0f);
@@ -169,11 +169,11 @@ int main(int argc,char** argv) {
         for(const auto& entry:remotes) engine.DrawModel(player,entry.second.position,entry.second.yaw,1);
         engine.End3D();
         DrawRectangle(18,18,355,132,Fade(BLACK,0.68f));
-        DrawText("IRANIAN MULTI THEFT",34,30,22,GOLD);
-        DrawText(ires::Engine::Version(),34,59,15,RAYWHITE);
-        DrawText(connected?"MULTIPLAYER: CONNECTED":"MULTIPLAYER: OFFLINE",34,83,14,connected?LIME:ORANGE);
-        DrawText(TextFormat("Players: %i",1+(int)remotes.size()),34,105,14,RAYWHITE);
-        DrawText("WASD: MOVE   E: VEHICLE",22,GetScreenHeight()-34,16,RAYWHITE);
+        RaylibDrawText("IRANIAN MULTI THEFT",34,30,22,GOLD);
+        RaylibDrawText(ires::Engine::Version(),34,59,15,RAYWHITE);
+        RaylibDrawText(connected?"MULTIPLAYER: CONNECTED":"MULTIPLAYER: OFFLINE",34,83,14,connected?LIME:ORANGE);
+        RaylibDrawText(TextFormat("Players: %i",1+(int)remotes.size()),34,105,14,RAYWHITE);
+        RaylibDrawText("WASD: MOVE   E: VEHICLE",22,GetScreenHeight()-34,16,RAYWHITE);
         DrawFPS(GetScreenWidth()-90,18);
         engine.EndFrame();
     }
