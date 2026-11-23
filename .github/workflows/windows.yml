@@ -38,12 +38,11 @@ jobs:
           }
           $header = Get-ChildItem $root -Recurse -File -Filter opensslv.h | Select-Object -First 1
           $libraries = Get-ChildItem $root -Recurse -File -Filter "*crypto*.lib"
-          $crypto = $libraries | Where-Object { $_.FullName -match "vc143" -and $_.FullName -match "static" } | Select-Object -First 1
-          if (!$crypto) { $crypto = $libraries | Where-Object { $_.FullName -match "vc143" } | Select-Object -First 1 }
-          if (!$crypto) { $crypto = $libraries | Where-Object { $_.Name -match "static" } | Select-Object -First 1 }
+          $crypto = $libraries | Where-Object { $_.FullName -match "win-x64" -and $_.Name -match "crypto_static" } | Select-Object -First 1
+          if (!$crypto) { $crypto = $libraries | Where-Object { $_.FullName -match "x64" -and $_.Name -match "crypto_static" } | Select-Object -First 1 }
           if (!$header -or !$crypto) {
             Get-ChildItem $root -Recurse -File | Select-Object -ExpandProperty FullName
-            throw "Prebuilt OpenSSL headers or VC143 crypto library were not found."
+            throw "Prebuilt OpenSSL headers or x64 static crypto library were not found."
           }
           "OPENSSL_INCLUDE_DIR=$($header.Directory.Parent.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "OPENSSL_CRYPTO_LIBRARY=$($crypto.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
