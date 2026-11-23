@@ -54,6 +54,10 @@ jobs:
           "OPENSSL_MSVC_STATIC_RT=TRUE" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Using prebuilt OpenSSL: $($crypto.FullName)"
 
+      - name: Download real game models and UI font
+        shell: pwsh
+        run: ./tools/fetch_assets.ps1
+
       - name: Configure Windows x64 game
         shell: pwsh
         run: |
