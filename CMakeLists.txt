@@ -53,6 +53,13 @@ add_custom_command(TARGET irantheft POST_BUILD
     COMMENT "Packing IRES game assets into IREMG"
 )
 
+
+if(MINGW)
+    foreach(target irantheft ires_editor ires_packer ires_signer)
+        target_link_options(${target} PRIVATE -static -static-libgcc -static-libstdc++)
+    endforeach()
+endif()
+
 if(WIN32)
     target_link_libraries(irantheft PRIVATE winmm)
     target_link_libraries(ires_editor PRIVATE winmm)
