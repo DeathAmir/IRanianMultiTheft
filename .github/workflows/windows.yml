@@ -1,4 +1,4 @@
-name: Windows Build
+name: IRES Engine Windows Build
 
 on:
   push:
@@ -15,23 +15,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Configure
+      - name: Configure x64 Release
         run: cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Stage executable
+      - name: Build with 8 parallel jobs
+        run: cmake --build build --config Release --parallel 8
+      - name: Stage binaries and packed game
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item build/Release/irantheft.exe dist/irantheft.exe
-
-      - name: Upload Windows build
+          Copy-Item build/Release/irantheft.exe dist/
+          Copy-Item build/Release/ires_editor.exe dist/
+          Copy-Item build/Release/ires_packer.exe dist/
+          Copy-Item build/game.iremg dist/
+          Copy-Item -Recurse build/assets dist/assets
+      - name: Upload IRES Windows x64
         uses: actions/upload-artifact@v4
         with:
-          name: IRanianMultiTheft-Windows-x64
-          path: dist/irantheft.exe
+          name: IRES-ENGINE-Windows-x64
+          path: dist/
           if-no-files-found: error
           retention-days: 14
