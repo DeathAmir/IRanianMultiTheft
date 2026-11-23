@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  build-and-package:
-    name: Build game on Windows and create NSIS installer
+  build-game:
+    name: Build game and upload intermediate files
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -59,16 +59,100 @@ jobs:
       - name: Compile game and tools on Windows
         run: cmake --build build --config Release --parallel
 
-      - name: Stage game files
+      - name: Collect every available game output
+        if: always()
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force launcher-resources/game | Out-Null
-          Copy-Item build/Release/irantheft.exe launcher-resources/game/
-          Copy-Item build/game.iremg launcher-resources/game/
-          Copy-Item build/assets launcher-resources/game/ -Recurse
-          Copy-Item build/Release/ires_editor.exe launcher-resources/game/
-          Copy-Item build/Release/ires_packer.exe launcher-resources/game/
-          Copy-Item build/Release/ires_signer.exe launcher-resources/game/
+          $destination = Join-Path $env:GITHUB_WORKSPACE "launcher-resources/game"
+          New-Item -ItemType Directory -Force $destination | Out-Null
+          $files = @(
+            "build/Release/irantheft.exe",
+            "build/Release/ires_editor.exe",
+            "build/Release/ires_packer.exe",
+            "build/Release/ires_signer.exe",
+            "build/game.iremg"
+          )
+          foreach ($file in $files) {
+            if (Test-Path $file) {
+              Copy-Item $file $destination -Force
+              Write-Host "Collected $file"
+            } else {
+              Write-Warning "Not built: $file"
+            }
+          }
+          if (Test-Path "build/assets") {
+            Copy-Item "build/assets" $destination -Recurse -Force
+          }
+
+      - name: Upload intermediate game files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IRAntheft-Game-Build
+          path: launcher-resources/game/
+          if-no-files-found: warn
+          retention-days: 14
+
+  package-launcher:
+    name: Package launcher and create NSIS setup
+    runs-on: windows-latest
+    needs: build-game
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download intermediate game files
+        uses: actions/download-artifact@v4
+        with:
+          name: IRAntheft-Game-Build
+          path: launcher-resources/game
+        continue-on-error: true
+
+      - name: Validate game files for launcher
+        shell: pwsh
+        run: |
+          $required = @(
+            "launcher-resources/game/irantheft.exe",
+            "launcher-resources/game/game.iremg",
+            "launcher-resources/game/ires_editor.exe",
+            "launcher-resources/game/ires_packer.exe",
+            "launcher-resources/game/ires_signer.exe",
+            "launcher-resources/game/assets"
+          )
+          $missing = @($required | Where-Object { !(Test-Path $_) })
+          if ($missing.Count -gt 0) {
+            Write-Host "The game build is incomplete. Available files:"
+            Get-ChildItem launcher-resources/game -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+            throw "Cannot package launcher. Missing: $($missing -join ', ')"
+          }
+
+      - name: Create required Windows icon
+        shell: pwsh
+        run: |
+          $iconPath = Join-Path $env:GITHUB_WORKSPACE "launcher-ui/src-tauri/icons/icon.ico"
+          New-Item -ItemType Directory -Force (Split-Path $iconPath) | Out-Null
+          Add-Type -AssemblyName System.Drawing
+          $bitmap = New-Object System.Drawing.Bitmap 256, 256
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+          $graphics.Clear([System.Drawing.Color]::FromArgb(12, 18, 38))
+          $gold = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(235, 184, 76))
+          $blue = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(40, 91, 160))
+          $graphics.FillEllipse($gold, 28, 28, 200, 200)
+          $graphics.FillEllipse($blue, 43, 43, 170, 170)
+          $font = New-Object System.Drawing.Font "Arial", 92, ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
+          $brush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 255, 255))
+          $graphics.DrawString("IR", $font, $brush, 48, 65)
+          $handle = $bitmap.GetHicon()
+          $icon = [System.Drawing.Icon]::FromHandle($handle)
+          $stream = [System.IO.File]::Create($iconPath)
+          $icon.Save($stream)
+          $stream.Dispose()
+          $icon.Dispose()
+          $graphics.Dispose()
+          $bitmap.Dispose()
+          Write-Host "Generated $iconPath"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -90,10 +174,13 @@ jobs:
         working-directory: launcher-ui
         run: npm run tauri build -- --bundles nsis
 
-      - name: Upload Windows installer
+      - name: Upload launcher and installer outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: IRAntheft-Windows-x64-Setup
-          path: launcher-ui/src-tauri/target/release/bundle/nsis/*.exe
-          if-no-files-found: error
+          path: |
+            launcher-ui/src-tauri/target/release/bundle/nsis/*.exe
+            launcher-ui/src-tauri/target/release/irantheft-launcher.exe
+          if-no-files-found: warn
           retention-days: 14
