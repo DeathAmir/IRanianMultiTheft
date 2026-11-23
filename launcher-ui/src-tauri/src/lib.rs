@@ -19,7 +19,7 @@ fn game_ready(app: tauri::AppHandle) -> bool {
 fn launch_game(app: tauri::AppHandle) -> Result<(), String> {
     let executable = game_executable(&app)?;
     let working_dir = executable.parent().ok_or_else(|| "Invalid game directory.".to_string())?;
-    Command::new(executable)
+    Command::new(&executable)
         .current_dir(working_dir)
         .spawn()
         .map_err(|e| format!("Could not start the game: {e}"))?;
