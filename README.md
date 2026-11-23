@@ -8,6 +8,8 @@ A C++17 third-person open-world multiplayer game foundation powered by **IRES EN
 - **IREM** — project-native model format (v1), currently box-based primitive meshes.
 - **IRET** — project-native material/texture format (v1), currently solid RGBA materials.
 - **IREMG** — packed game archive (v1), stores all asset files in one binary container.
+- **IRESA** — Ed25519-signed model, texture and script asset envelope; unsigned game assets are rejected by the runtime.
+- **IRES Signer** — creates Ed25519 keys, signs files and verifies signatures.
 - **IRES Asset Editor** — opens IREM models, adds/removes box parts, rotates, zooms and saves.
 - **IRES Asset Packer** — packs the assets directory into game.iremg.
 - Branded splash screen and a small third-person multiplayer test world.
@@ -25,7 +27,7 @@ cmake --build build --config Release --parallel 8
 .\build\Release\irantheft.exe
 ```
 
-CMake downloads raylib 5.5 and ENet 1.3.18 at configure time. The Windows workflow uses eight parallel build jobs and uploads the game, editor, packer, packed archive and loose assets.
+CMake downloads raylib 5.5 and ENet 1.3.18 at configure time and requires OpenSSL Crypto for IRESA Ed25519 signatures. The Windows workflow uses eight parallel build jobs and uploads the game, editor, packer, packed archive and loose assets.
 
 ## Run a dedicated server
 
@@ -59,7 +61,7 @@ Editor controls: Left/Right rotate, mouse wheel zoom, N adds a box, Delete remov
 
 ## Format specifications
 
-See [IRES_FORMATS.md](docs/IRES_FORMATS.md) for IREM, IRET and IREMG v1 layouts.
+See [IRES_FORMATS.md](docs/IRES_FORMATS.md) for IREM, IRET and IREMG v1 layouts and [IRESA_SIGNATURES.md](docs/IRESA_SIGNATURES.md) for signed assets, key generation and signing.
 
 ## Current scope
 
