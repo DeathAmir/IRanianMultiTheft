@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "IRAntheft",
+  "version": "1.0.0",
+  "identifier": "ir.irautox.irantheft",
+  "build": {
+    "frontendDist": "../"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "IRAntheft Launcher",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 620,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' asset: http://asset.localhost data:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "category": "Game",
+    "shortDescription": "IRAntheft multiplayer game launcher",
+    "longDescription": "Install and launch IRAntheft, powered by IRES Engine.",
+    "resources": {
+      "../../launcher-resources/game/irantheft.exe": "game/irantheft.exe",
+      "../../launcher-resources/game/game.iremg": "game/game.iremg",
+      "../../launcher-resources/game/assets": "game/assets",
+      "../../launcher-resources/game/ires_editor.exe": "game/ires_editor.exe",
+      "../../launcher-resources/game/ires_packer.exe": "game/ires_packer.exe",
+      "../../launcher-resources/game/ires_signer.exe": "game/ires_signer.exe"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "languages": ["English"],
+        "compression": "lzma"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    }
+  }
+}
