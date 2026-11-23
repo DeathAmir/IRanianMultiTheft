@@ -13,7 +13,8 @@ $downloads = @(
     @{ Url = "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsans/OFL.txt"; Path = (Join-Path $fonts "OFL-IBM-Plex-Sans.txt"); MinBytes = 1000 },
     @{ Url = "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/apps/game/public/sfx/smg_9mm.mp3"; Path = (Join-Path $audio "gunshot_smg.mp3"); MinBytes = 1000 },
     @{ Url = "https://raw.githubusercontent.com/euuuuuuan/moonshard-warden-public/main/src/assets/kenney-rpg-audio/footstep00.ogg"; Path = (Join-Path $audio "footstep.ogg"); MinBytes = 1000 },
-    @{ Url = "https://raw.githubusercontent.com/euuuuuuan/moonshard-warden-public/main/src/assets/kenney-impact/impactMetal_heavy_001.ogg"; Path = (Join-Path $audio "reload.ogg"); MinBytes = 1000 },
+    @{ Url = "https://opengameart.org/sites/default/files/clipload2.wav"; Path = (Join-Path $audio "reload.wav"); MinBytes = 10000 },
+    @{ Url = "https://raw.githubusercontent.com/euuuuuuan/moonshard-warden-public/main/src/assets/kenney-rpg-audio/footstep02.ogg"; Path = (Join-Path $audio "footstep_alt.ogg"); MinBytes = 1000 },
     @{ Url = "https://raw.githubusercontent.com/euuuuuuan/moonshard-warden-public/main/src/assets/kenney-impact/impactMining_002.ogg"; Path = (Join-Path $audio "impact.ogg"); MinBytes = 1000 }
 )
 foreach ($item in $downloads) {
