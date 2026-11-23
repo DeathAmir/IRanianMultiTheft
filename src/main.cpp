@@ -34,6 +34,7 @@ float gAnimationClock=0.0f;
 Sound gGunshotSound{};
 Sound gReloadSound{};
 Sound gFootstepSound{};
+Sound gFootstepSoundAlt{};
 Sound gImpactSound{};
 bool gAudioReady=false;
 bool gHasSoldierModel=false;
@@ -144,13 +145,15 @@ int main(int argc,char** argv) {
  gAudioReady=IsAudioDeviceReady();
  if(gAudioReady) {
   gGunshotSound=LoadSound((base+"assets/audio/gunshot_smg.mp3").c_str());
-  gReloadSound=LoadSound((base+"assets/audio/reload.ogg").c_str());
+  gReloadSound=LoadSound((base+"assets/audio/reload.wav").c_str());
   gFootstepSound=LoadSound((base+"assets/audio/footstep.ogg").c_str());
+  gFootstepSoundAlt=LoadSound((base+"assets/audio/footstep_alt.ogg").c_str());
   gImpactSound=LoadSound((base+"assets/audio/impact.ogg").c_str());
-  SetSoundVolume(gGunshotSound,0.72f);
-  SetSoundVolume(gReloadSound,0.58f);
-  SetSoundVolume(gFootstepSound,0.42f);
-  SetSoundVolume(gImpactSound,0.55f);
+  if(gGunshotSound.frameCount>0) SetSoundVolume(gGunshotSound,0.72f);
+  if(gReloadSound.frameCount>0) SetSoundVolume(gReloadSound,0.58f);
+  if(gFootstepSound.frameCount>0) SetSoundVolume(gFootstepSound,0.42f);
+  if(gFootstepSoundAlt.frameCount>0) SetSoundVolume(gFootstepSoundAlt,0.42f);
+  if(gImpactSound.frameCount>0) SetSoundVolume(gImpactSound,0.55f);
  }
  std::vector<ires::Primitive> world;
  if(!ires::LoadMap(base+"assets/maps/arena.iremap",world)) {
@@ -178,7 +181,7 @@ int main(int argc,char** argv) {
   if(playerMoving) {
    Vector3 step=Vector3Scale(Vector3Normalize(movement),(IsKeyDown(KEY_LEFT_SHIFT)?9.0f:5.8f)*dt);
    footstepTimer+=dt;
-   if(gAudioReady&&gFootstepSound.frameCount>0&&footstepTimer>=0.42f) { PlaySound(gFootstepSound); footstepTimer=0.0f; }
+   if(gAudioReady&&gFootstepSound.frameCount>0&&footstepTimer>=0.42f) { PlaySound(GetRandomValue(0,1)==0||gFootstepSoundAlt.frameCount==0?gFootstepSound:gFootstepSoundAlt); footstepTimer=0.0f; }
    Vector3 nextX={Clamp(playerPos.x+step.x,-37,37),0,playerPos.z};
    Vector3 nextZ={playerPos.x,0,Clamp(playerPos.z+step.z,-37,37)};
    if(CanStand(nextX,world)) playerPos.x=nextX.x;
@@ -223,6 +226,7 @@ int main(int argc,char** argv) {
   if(gGunshotSound.frameCount>0) UnloadSound(gGunshotSound);
   if(gReloadSound.frameCount>0) UnloadSound(gReloadSound);
   if(gFootstepSound.frameCount>0) UnloadSound(gFootstepSound);
+  if(gFootstepSoundAlt.frameCount>0) UnloadSound(gFootstepSoundAlt);
   if(gImpactSound.frameCount>0) UnloadSound(gImpactSound);
   CloseAudioDevice();
  }
