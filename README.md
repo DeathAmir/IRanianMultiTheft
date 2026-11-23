@@ -1,67 +1,53 @@
-# IRanianMultiTheft
+# IRanianMultiTheft — IRES ENGINE
 
-An open-source C++ third-person multiplayer open-world prototype. The project is being built from the ground up and currently includes a procedural test city, third-person movement, a drivable test vehicle, and an ENet-based dedicated server/client foundation.
+A C++17 third-person open-world game foundation powered by **IRES ENGINE**, a small custom 3D engine and asset pipeline built for this project.
 
-## Current prototype
+## Components
 
-- C++17 application
-- 3D rendering and input with [raylib](https://github.com/raysan5/raylib) (zlib/libpng)
-- UDP networking with [ENet](https://github.com/lsalzman/enet) (MIT)
-- Procedurally generated city blocks for the first playable test map
-- Third-person player movement and a basic vehicle interaction
-- Windows x64 build through GitHub Actions
+- **IRES Engine** — raylib-backed 3D renderer, camera, scene drawing and runtime.
+- **IREM** — project-native 3D model format (v1).
+- **IRET** — project-native texture/material format (v1).
+- **IREMG** — packed game asset archive (v1).
+- **IRES Asset Editor** — lightweight model preview/editor for IREM.
+- **IRES Asset Packer** — packs an asset directory into a single IREMG archive.
+- Game startup includes an IRES ENGINE splash screen and loading progress.
 
-The current city and character are prototype geometry, not final GTA San Andreas assets. External models and textures should only be added when their licenses explicitly permit redistribution and game use. Prefer CC0 or suitably licensed assets, and keep each asset's attribution/license in `assets/licenses/`.
+The initial sample character, sedan and city building are original primitive-based assets created for this repository. External libraries selected for future imports are Quaternius and Kenney; see [asset licensing notes](assets/licenses/ASSETS.md). No GTA/Rockstar files are included.
 
-## Build on Windows
+## Build Windows x64
 
-Requirements: Visual Studio 2022 C++ workload, CMake 3.24+, and Git.
+Requirements: Visual Studio 2022 C++ workload, CMake 3.24+, Git.
 
 ```powershell
-cmake -S . -B build -A x64
-cmake --build build --config Release --parallel
+cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel 8
 .\build\Release\irantheft.exe
 ```
 
-CMake downloads raylib and ENet at configure time.
+CMake downloads raylib at configure time. The Windows workflow builds with eight parallel jobs and uploads the game, editor, packer, packed archive and loose assets.
 
-## Run a dedicated server
-
-```powershell
-.\build\Release\irantheft.exe --server 27880
-```
-
-Allow inbound UDP traffic on port 27880.
-
-## Connect a game client
+## Tools
 
 ```powershell
-.\build\Release\irantheft.exe --connect 127.0.0.1:27880
+.\build\Release\ires_editor.exe assets\models\player.irem
+.\build\Release\ires_packer.exe assets game.iremg
 ```
 
-For a remote server, replace the address with its public IP or hostname. The default client address is `127.0.0.1:27880`.
+Editor controls: Left/Right rotate, mouse wheel zoom. The IREM editor opens and previews the model; full mesh editing, animation authoring and material painting are future milestones.
 
-## Controls
+## Game controls
 
-- W/A/S/D: Move or drive
-- E: Enter/exit the nearby test car
-- Esc: Close the game
+- WASD: move / drive
+- E: enter or leave the nearby car
+- Enter: skip splash screen
+- Esc: exit
 
-## GitHub Actions
+## Current scope
 
-Every push to `main`, `develop`, or `feature/**`, every pull request, and manual dispatch runs the Windows x64 build. The executable is uploaded as the `IRanianMultiTheft-Windows-x64` workflow artifact.
+This is an engine foundation, not yet a complete GTA-scale engine. Current IREM supports box primitives; IRET supports solid-color materials; IREMG is an uncompressed archive. Advanced mesh import, skeletal animation, physics, lighting/shadows, world streaming, authoritative multiplayer, account services and a full scene editor remain future work.
 
-## Roadmap
+## Dependencies
 
-1. Replace prototype geometry with licensed character, vehicle, and environment assets.
-2. Add animation controller, collision, and vehicle physics.
-3. Add authoritative server-side movement validation and player lifecycle.
-4. Add account persistence, spawn selection, chat, and server browser.
-5. Expand the city and implement streaming/world partitioning.
+- raylib 5.5 — zlib/libpng
 
-## Third-party licenses
-
-- raylib: zlib/libpng license
-- ENet: MIT license
-
-See the upstream projects for full license texts.
+See upstream licenses and the repository's asset license notes.
