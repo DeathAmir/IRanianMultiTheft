@@ -1,4 +1,5 @@
 #include "../engine/ires_engine.hpp"
+#include "../engine/iresa.hpp"
 #include "raymath.h"
 #include <enet/enet.h>
 #include <algorithm>
@@ -161,7 +162,7 @@ int main(int argc,char** argv) {
         engine.Camera().position=Vector3Lerp(engine.Camera().position,{focus.x-sinf(yaw)*9,5.5f,focus.z-cosf(yaw)*9},4*dt);
         engine.BeginFrame(Color{135,184,218,255});
         engine.Begin3D();
-        DrawPlane({0,-0.1f,0},{240,0.1f,240},groundMaterial.color); DrawGrid(60,4.0f);
+        DrawPlane(Vector3{0.0f,-0.1f,0.0f},Vector2{240.0f,240.0f},groundMaterial.color); DrawGrid(60,4.0f);
         for(int x=-4;x<=4;x++) for(int z=-4;z<=4;z++) if(abs(x)>=2&&abs(z)>=2) engine.DrawModel(building,{(float)x*18,0,(float)z*18},0,1);
         engine.DrawModel(car,carPos,carYaw,1);
         if(!driving) engine.DrawModel(player,playerPos,yaw,1);
