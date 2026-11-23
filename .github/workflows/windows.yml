@@ -9,6 +9,10 @@ name: IRAntheft Windows x64 Setup
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: irantheft-windows-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
