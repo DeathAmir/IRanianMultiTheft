@@ -18,3 +18,23 @@ The CC0 legal code is available at https://creativecommons.org/publicdomain/zero
 ## Fonts
 
 The game currently uses raylib's built-in default bitmap font. No external font file is bundled. If a font is added, prefer SIL Open Font License (OFL) families and include the exact font license and copyright notice alongside the font files.
+
+# Third-party asset notices
+
+## Quaternius — SWAT character and SMG model
+
+- Files: `assets/models/Swat.glb`, `assets/models/SMG_1.glb`
+- Author: Quaternius
+- Source model distribution: https://github.com/trebeljahr/quaternius-showcase
+- Original pack pages: https://quaternius.com/packs/ultimatemodularcharacters.html and https://quaternius.com/packs/scifimodularguns.html
+- License: CC0 1.0 Universal (verify the pack's included/source license when updating assets)
+- These are real downloaded GLB meshes, not procedural placeholders.
+
+## IBM Plex Sans
+
+- File: `assets/fonts/IBMPlexSans[wdth,wght].ttf`
+- License: SIL Open Font License 1.1
+- Source: https://github.com/google/fonts/tree/main/ofl/ibmplexsans
+- License text: `assets/fonts/OFL-IBM-Plex-Sans.txt`
+
+The download script fetches these files during the Windows build so large binary assets do not need to be committed to Git.
