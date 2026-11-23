@@ -8,12 +8,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(FetchContent)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
+set(ENET_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(raylib
     GIT_REPOSITORY https://github.com/raysan5/raylib.git
     GIT_TAG 5.5
     GIT_SHALLOW TRUE
 )
-FetchContent_MakeAvailable(raylib)
+FetchContent_Declare(enet
+    GIT_REPOSITORY https://github.com/lsalzman/enet.git
+    GIT_TAG v1.3.18
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(raylib enet)
 
 add_library(ires_engine STATIC
     engine/ires_engine.cpp
@@ -23,7 +29,8 @@ target_include_directories(ires_engine PUBLIC engine)
 target_link_libraries(ires_engine PUBLIC raylib)
 
 add_executable(irantheft src/main.cpp)
-target_link_libraries(irantheft PRIVATE ires_engine)
+target_link_libraries(irantheft PRIVATE ires_engine enet)
+target_include_directories(irantheft PRIVATE ${enet_SOURCE_DIR}/include)
 
 add_executable(ires_editor tools/ires_editor.cpp)
 target_link_libraries(ires_editor PRIVATE ires_engine)
