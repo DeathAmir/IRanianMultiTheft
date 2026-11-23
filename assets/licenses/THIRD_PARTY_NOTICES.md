@@ -32,7 +32,7 @@ The game currently uses raylib's built-in default bitmap font. No external font 
 
 ## IBM Plex Sans
 
-- File: `assets/fonts/IBMPlexSans[wdth,wght].ttf`
+- File: `assets/fonts/IBMPlexSans.ttf`
 - License: SIL Open Font License 1.1
 - Source: https://github.com/google/fonts/tree/main/ofl/ibmplexsans
 - License text: `assets/fonts/OFL-IBM-Plex-Sans.txt`
