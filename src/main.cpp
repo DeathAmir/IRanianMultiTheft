@@ -8,7 +8,7 @@ int main() {
     ires::Engine engine;
     if(!engine.Initialize(1366,768,"IRanianMultiTheft | Powered by IRES ENGINE")) return 1;
     const std::string base=GetApplicationDirectory();
-    ires::ModelAsset player,car,building;
+    ires::ModelAsset player,car,building;\n    ires::TextureAsset groundMaterial;\n    if(!ires::LoadIremgTexture(base+"game.iremg","textures/concrete.iret",groundMaterial)) ires::LoadIret(base+"assets/textures/concrete.iret",groundMaterial);
     if(!ires::LoadIremgModel(base+"game.iremg","models/player.irem",player)) ires::LoadIrem(base+"assets/models/player.irem",player);
     if(!ires::LoadIremgModel(base+"game.iremg","models/sedan.irem",car)) ires::LoadIrem(base+"assets/models/sedan.irem",car);
     if(!ires::LoadIremgModel(base+"game.iremg","models/building.irem",building)) ires::LoadIrem(base+"assets/models/building.irem",building);
@@ -53,7 +53,7 @@ int main() {
         engine.Camera().position=Vector3Lerp(engine.Camera().position,{focus.x-sinf(yaw)*9,5.5f,focus.z-cosf(yaw)*9},4*dt);
         engine.BeginFrame(Color{135,184,218,255});
         engine.Begin3D();
-        DrawPlane({0,-0.1f,0},{240,0.1f,240},Color{73,94,78,255});
+        DrawPlane({0,-0.1f,0},{240,0.1f,240},groundMaterial.color);
         DrawGrid(60,4.0f);
         for(int x=-4;x<=4;x++) for(int z=-4;z<=4;z++) {
             if(abs(x)<2||abs(z)<2) continue;
