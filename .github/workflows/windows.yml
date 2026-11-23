@@ -1,4 +1,4 @@
-name: IRES Windows x64 and NSIS Release
+name: IRAntheft Windows x64 Setup
 
 'on':
   push:
@@ -13,80 +13,49 @@ permissions:
   contents: read
 
 jobs:
-  build-game:
-    name: Cross compile game on Linux for Windows x64
-    runs-on: ubuntu-24.04
+  build-and-package:
+    name: Build game on Windows and create NSIS installer
+    runs-on: windows-latest
+    env:
+      VCPKG_ROOT: C:\vcpkg
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install MinGW and build tools
+      - name: Setup vcpkg cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\installed
+            C:\vcpkg\downloads
+            C:\vcpkg\buildtrees
+          key: windows-vcpkg-openssl-${{ runner.os }}-x64-v1
+          restore-keys: |
+            windows-vcpkg-openssl-${{ runner.os }}-x64-
+
+      - name: Install OpenSSL
+        shell: pwsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mingw-w64 ninja-build cmake pkg-config
+          & "$env:VCPKG_ROOT\vcpkg.exe" install openssl:x64-windows-static
 
-      - name: Install vcpkg
+      - name: Configure Windows x64 game
+        shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
-          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
-          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+          cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DVCPKG_HOST_TRIPLET=x64-windows -DOPENSSL_ROOT_DIR="$env:VCPKG_ROOT/installed/x64-windows-static"
 
-      - name: Install Windows OpenSSL
-        run: '$HOME/vcpkg/vcpkg install openssl:x64-mingw-static'
-
-      - name: Configure Windows x64
-        shell: bash
-        run: |
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
-            -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc \
-            -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++ \
-            -DCMAKE_RC_COMPILER=/usr/bin/x86_64-w64-mingw32-windres \
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_TARGET_TRIPLET=x64-mingw-static \
-            -DVCPKG_HOST_TRIPLET=x64-linux \
-            -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/cmake/toolchains/mingw64.cmake" \
-            -DOPENSSL_ROOT_DIR="$VCPKG_ROOT/installed/x64-mingw-static"
-
-      - name: Build Windows binaries
-        run: cmake --build build --parallel 4
+      - name: Compile game and tools on Windows
+        run: cmake --build build --config Release --parallel
 
       - name: Stage game files
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p dist/game
-          cp build/irantheft.exe dist/game/
-          cp build/game.iremg dist/game/
-          cp -R build/assets dist/game/
-          cp build/ires_editor.exe dist/game/
-          cp build/ires_packer.exe dist/game/
-          cp build/ires_signer.exe dist/game/
-          file dist/game/irantheft.exe
-          x86_64-w64-mingw32-objdump -f dist/game/irantheft.exe
-
-      - name: Upload Windows x64 game payload
-        uses: actions/upload-artifact@v4
-        with:
-          name: ires-windows-x64-game
-          path: dist/game/
-          if-no-files-found: error
-          retention-days: 7
-
-  build-launcher:
-    name: Build Tauri launcher and NSIS installer
-    runs-on: windows-latest
-    needs: build-game
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download Windows game payload
-        uses: actions/download-artifact@v4
-        with:
-          name: ires-windows-x64-game
-          path: launcher-resources/game
+          New-Item -ItemType Directory -Force launcher-resources/game | Out-Null
+          Copy-Item build/Release/irantheft.exe launcher-resources/game/
+          Copy-Item build/game.iremg launcher-resources/game/
+          Copy-Item build/assets launcher-resources/game/ -Recurse
+          Copy-Item build/Release/ires_editor.exe launcher-resources/game/
+          Copy-Item build/Release/ires_packer.exe launcher-resources/game/
+          Copy-Item build/Release/ires_signer.exe launcher-resources/game/
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -100,15 +69,15 @@ jobs:
         shell: pwsh
         run: choco install nsis -y --no-progress
 
-      - name: Install Tauri CLI
+      - name: Install Tauri dependencies
         working-directory: launcher-ui
         run: npm install
 
-      - name: Build NSIS installer
+      - name: Build Tauri launcher and NSIS installer
         working-directory: launcher-ui
         run: npm run tauri build -- --bundles nsis
 
-      - name: Upload installer
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: IRAntheft-Windows-x64-Setup
