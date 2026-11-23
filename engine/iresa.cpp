@@ -30,32 +30,16 @@ bool WriteFile(const std::string& path,const std::string& data){
 std::string Prefix(uint8_t type,uint64_t size){
     std::string p(Magic,5);Put32(p,Version);p.push_back((char)type);Put64(p,size);return p;
 }
-bool VerifyWithKey(const std::string& data,const unsigned char* key){
-    if(data.size()<PrefixSize+SignatureSize||std::memcmp(data.data(),Magic,5)!=0)return false;
-    if(Get32(data.data()+5)!=Version)return false;
-    const uint64_t size=Get64(data.data()+10);
-    if(size>(1ull<<32)||data.size()!=PrefixSize+SignatureSize+(size_t)size)return false;
-    EVP_PKEY* publicKey=EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519,nullptr,key,32);
-    if(!publicKey)return false;
-    EVP_MD_CTX* ctx=EVP_MD_CTX_new();
-    bool ok=false;
-    if(ctx&&EVP_DigestVerifyInit(ctx,nullptr,nullptr,nullptr,publicKey)==1)
-        ok=EVP_DigestVerify(ctx,(const unsigned char*)data.data()+PrefixSize,SignatureSize,
-            (const unsigned char*)data.data(),PrefixSize)==1 &&
-            EVP_DigestVerifyInit(ctx,nullptr,nullptr,nullptr,publicKey)==1;
-    if(ctx)EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(publicKey);
-    return ok;
-}
 bool VerifySignature(const std::string& data,const unsigned char* key){
     if(data.size()<PrefixSize+SignatureSize||std::memcmp(data.data(),Magic,5)!=0||Get32(data.data()+5)!=Version)return false;
     const uint64_t size=Get64(data.data()+10);
     if(size>(1ull<<32)||data.size()!=PrefixSize+SignatureSize+(size_t)size)return false;
     EVP_PKEY* pub=EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519,nullptr,key,32);
     EVP_MD_CTX* ctx=EVP_MD_CTX_new();bool ok=false;
+    const std::string signedBytes=data.substr(0,PrefixSize)+data.substr(PrefixSize+SignatureSize,(size_t)size);
     if(pub&&ctx&&EVP_DigestVerifyInit(ctx,nullptr,nullptr,nullptr,pub)==1)
         ok=EVP_DigestVerify(ctx,(const unsigned char*)data.data()+PrefixSize,SignatureSize,
-            (const unsigned char*)data.data()+PrefixSize+SignatureSize,(size_t)size)==1;
+            (const unsigned char*)signedBytes.data(),signedBytes.size())==1;
     if(ctx)EVP_MD_CTX_free(ctx);if(pub)EVP_PKEY_free(pub);return ok;
 }
 bool PayloadToModel(const std::string& payload,ModelAsset& out){
@@ -75,9 +59,10 @@ bool SignIresaFile(const std::string& privateKey,const std::string& input,const 
     EVP_PKEY* key=PEM_read_bio_PrivateKey(bio,nullptr,nullptr,nullptr);BIO_free(bio);
     if(!key||EVP_PKEY_id(key)!=EVP_PKEY_ED25519){if(key)EVP_PKEY_free(key);return false;}
     std::string prefix=Prefix((uint8_t)type,payload.size());
+    std::string signedBytes=prefix+payload;
     EVP_MD_CTX* ctx=EVP_MD_CTX_new();unsigned char sig[64];size_t sigLen=sizeof(sig);
     bool ok=ctx&&EVP_DigestSignInit(ctx,nullptr,nullptr,nullptr,key)==1&&
-        EVP_DigestSign(ctx,sig,&sigLen,(const unsigned char*)prefix.data(),prefix.size())==1;
+        EVP_DigestSign(ctx,sig,&sigLen,(const unsigned char*)signedBytes.data(),signedBytes.size())==1;
     if(ctx)EVP_MD_CTX_free(ctx);EVP_PKEY_free(key);
     if(!ok||sigLen!=64)return false;
     std::string outputData=prefix;outputData.append((const char*)sig,sigLen);outputData+=payload;
