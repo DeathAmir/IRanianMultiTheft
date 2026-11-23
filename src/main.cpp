@@ -8,7 +8,9 @@ int main() {
     ires::Engine engine;
     if(!engine.Initialize(1366,768,"IRanianMultiTheft | Powered by IRES ENGINE")) return 1;
     const std::string base=GetApplicationDirectory();
-    ires::ModelAsset player,car,building;\n    ires::TextureAsset groundMaterial;\n    if(!ires::LoadIremgTexture(base+"game.iremg","textures/concrete.iret",groundMaterial)) ires::LoadIret(base+"assets/textures/concrete.iret",groundMaterial);
+    ires::ModelAsset player,car,building;
+    ires::TextureAsset groundMaterial;
+    if(!ires::LoadIremgTexture(base+"game.iremg","textures/concrete.iret",groundMaterial)) ires::LoadIret(base+"assets/textures/concrete.iret",groundMaterial);
     if(!ires::LoadIremgModel(base+"game.iremg","models/player.irem",player)) ires::LoadIrem(base+"assets/models/player.irem",player);
     if(!ires::LoadIremgModel(base+"game.iremg","models/sedan.irem",car)) ires::LoadIrem(base+"assets/models/sedan.irem",car);
     if(!ires::LoadIremgModel(base+"game.iremg","models/building.irem",building)) ires::LoadIrem(base+"assets/models/building.irem",building);
