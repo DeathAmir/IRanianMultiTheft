@@ -4,7 +4,7 @@ use tauri::Manager;
 fn game_executable(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let executable = resource_dir.join("game").join("irantheft.exe");
-    if !executable.is_file() {
+    if !executable.is_file() || !resource_dir.join("game").join("game.iremg").is_file() {
         return Err("Game executable was not found in the installation.".to_string());
     }
     Ok(executable)
