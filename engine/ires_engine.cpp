@@ -26,5 +26,5 @@ void Engine::End3D() { EndMode3D(); }
 void Engine::EndFrame() { EndDrawing(); }
 void Engine::Shutdown() { CloseWindow(); }
 Camera3D& Engine::Camera() { return camera_; }
-const char* Engine::Version() { return "IRES ENGINE 0.1.0"; }
+const char* Engine::Version() { return "IRES ENGINE 0.2.0"; }
 }
