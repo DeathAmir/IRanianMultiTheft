@@ -5,8 +5,7 @@
 int main(int argc,char** argv) {
     const std::string path=argc>1?argv[1]:"assets/models/player.irem";
     ires::ModelAsset model;
-    if(!ires::LoadIrem(path,model)) { std::cerr << "Cannot open IREM model: " << path << "
-"; return 1; }
+    if(!ires::LoadIrem(path,model)) { std::cerr << "Cannot open IREM model: " << path << "\\n"; return 1; }
     ires::Engine engine;
     if(!engine.Initialize(1100,720,"IRES ENGINE | Asset Editor")) return 1;
     float yaw=0, zoom=1.0f;
