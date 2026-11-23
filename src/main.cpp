@@ -100,10 +100,10 @@ int main(int argc,char** argv) {
     const std::string base=GetApplicationDirectory();
     ires::ModelAsset player,car,building;
     ires::TextureAsset groundMaterial;
-    if(!ires::LoadIremgTexture(base+"game.iremg","textures/concrete.iret",groundMaterial)) ires::LoadIret(base+"assets/textures/concrete.iret",groundMaterial);
-    if(!ires::LoadIremgModel(base+"game.iremg","models/player.irem",player)) ires::LoadIrem(base+"assets/models/player.irem",player);
-    if(!ires::LoadIremgModel(base+"game.iremg","models/sedan.irem",car)) ires::LoadIrem(base+"assets/models/sedan.irem",car);
-    if(!ires::LoadIremgModel(base+"game.iremg","models/building.irem",building)) ires::LoadIrem(base+"assets/models/building.irem",building);
+    ires::LoadIremgSignedTexture(base+"game.iremg","signed/textures/concrete.iresa",groundMaterial);
+    ires::LoadIremgSignedModel(base+"game.iremg","signed/models/player.iresa",player);
+    ires::LoadIremgSignedModel(base+"game.iremg","signed/models/sedan.iresa",car);
+    ires::LoadIremgSignedModel(base+"game.iremg","signed/models/building.iresa",building);
     bool splash=true,connected=false,driving=false;
     float splashTimer=0,sendTimer=0,yaw=0,carYaw=0;
     Vector3 playerPos{0,0,0},carPos{4,0,5};
