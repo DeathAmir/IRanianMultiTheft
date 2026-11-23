@@ -22,7 +22,9 @@ The repository's own source code is licensed under Apache-2.0 (see the root LICE
 
 - `assets/audio/gunshot_smg.mp3` — SMG firearm blast from The Free Firearm Sound Library by Ben Jaszczak, Brian Nelson, Kevin Heras and Matthew Nanney. Source: https://opengameart.org/content/the-free-firearm-sound-library. License: CC0. The sound is a blast layer, not a complete multi-layer weapon mix.
 - `assets/audio/footstep.ogg` — Kenney RPG Audio, `footstep00.ogg`. Source: https://kenney.nl/assets/rpg-audio. License: CC0 1.0.
-- `assets/audio/reload.ogg` and `assets/audio/impact.ogg` — Kenney Impact Sounds, `impactMetal_heavy_001.ogg` and `impactMining_002.ogg`. Source: https://kenney.nl/assets/impact-sounds. License: CC0 1.0.
+- `assets/audio/reload.wav` — `clipload2.wav` by Brian MacIntosh (BMacZero). Source: https://opengameart.org/content/gun-reload-sound-effects. License: CC0; attribution optional.
+- `assets/audio/footstep.ogg` and `assets/audio/footstep_alt.ogg` — Kenney RPG Audio, `footstep00.ogg` and `footstep02.ogg`. Source: https://kenney.nl/assets/rpg-audio. License: CC0 1.0.
+- `assets/audio/impact.ogg` — Kenney Impact Sounds, `impactMining_002.ogg`. Source: https://kenney.nl/assets/impact-sounds. License: CC0 1.0.
 - Sound binaries are fetched during the Windows build from public mirrors so they do not need to be committed as large binary files. The original CC0 terms permit commercial use and redistribution.
 
 ## Font
