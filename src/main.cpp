@@ -1,5 +1,5 @@
 #include "../engine/ires_engine.hpp"
-#include "../engine/iresa.hpp"
+#include "../engine/world.hpp"
 #include "raymath.h"
 #define CloseWindow Win32CloseWindow
 #define ShowCursor Win32ShowCursor
@@ -17,173 +17,94 @@
 #include <cstring>
 #include <map>
 #include <string>
-
+#include <vector>
 namespace {
 constexpr int DefaultPort=27880;
 constexpr uint32_t PacketMagic=0x49524553;
-struct NetPacket {
-    uint32_t magic;
-    uint8_t type;
-    uint8_t reserved[3];
-    uint32_t playerId;
-    float x,z,yaw;
-};
+struct NetPacket { uint32_t magic; uint8_t type; uint8_t reserved[3]; uint32_t playerId; float x,z,yaw; };
 struct RemotePlayer { Vector3 position{}; float yaw=0; };
+struct Target { Vector3 position{}; float health=100.0f; bool active=true; };
 int RunServer(int port) {
-    if(enet_initialize()!=0) return 1;
-    ENetAddress address{}; address.host=ENET_HOST_ANY; address.port=(enet_uint16)port;
-    ENetHost* server=enet_host_create(&address,64,2,0,0);
-    if(!server){enet_deinitialize();return 1;}
-    std::map<ENetPeer*,uint32_t> peers;
-    std::map<uint32_t,RemotePlayer> players;
-    uint32_t nextId=1;
-    auto lastBroadcast=std::chrono::steady_clock::now();
-    std::printf("IRES multiplayer server listening on UDP %d\n",port);
-    ENetEvent event{};
-    while(true) {
-        while(enet_host_service(server,&event,5)>0) {
-            if(event.type==ENET_EVENT_TYPE_CONNECT) {
-                const uint32_t id=nextId++;
-                peers[event.peer]=id; players[id]={}; event.peer->data=(void*)(uintptr_t)id;
-                std::printf("Player %u connected\n",id);
-            } else if(event.type==ENET_EVENT_TYPE_RECEIVE) {
-                if(event.packet->dataLength==sizeof(NetPacket)) {
-                    NetPacket p{}; std::memcpy(&p,event.packet->data,sizeof(p));
-                    auto it=peers.find(event.peer);
-                    if(p.magic==PacketMagic&&p.type==1&&it!=peers.end()) players[it->second]={{p.x,0,p.z},p.yaw};
-                }
-                enet_packet_destroy(event.packet);
-            } else if(event.type==ENET_EVENT_TYPE_DISCONNECT) {
-                auto it=peers.find(event.peer);
-                if(it!=peers.end()) {
-                    NetPacket gone{PacketMagic,3,{0,0,0},it->second,0,0,0};
-                    ENetPacket* packet=enet_packet_create(&gone,sizeof(gone),ENET_PACKET_FLAG_RELIABLE);
-                    if(packet) enet_host_broadcast(server,0,packet);
-                    players.erase(it->second); peers.erase(it);
-                }
-            }
-        }
-        const auto now=std::chrono::steady_clock::now();
-        if(now-lastBroadcast>=std::chrono::milliseconds(50)) {
-            lastBroadcast=now;
-            for(const auto& peer:peers) for(const auto& state:players) {
-                if(state.first==peer.second) continue;
-                NetPacket p{PacketMagic,2,{0,0,0},state.first,state.second.position.x,state.second.position.z,state.second.yaw};
-                ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED);
-                if(packet) enet_peer_send(peer.first,0,packet);
-            }
-            enet_host_flush(server);
-        }
-    }
-    enet_host_destroy(server); enet_deinitialize(); return 0;
+ if(enet_initialize()!=0) return 1;
+ ENetAddress address{}; address.host=ENET_HOST_ANY; address.port=(enet_uint16)port;
+ ENetHost* server=enet_host_create(&address,64,2,0,0); if(!server){enet_deinitialize();return 1;}
+ std::map<ENetPeer*,uint32_t> peers; std::map<uint32_t,RemotePlayer> players; uint32_t nextId=1;
+ auto lastBroadcast=std::chrono::steady_clock::now(); std::printf("IRES multiplayer server listening on UDP %d\n",port); ENetEvent event{};
+ while(true) {
+  while(enet_host_service(server,&event,5)>0) {
+   if(event.type==ENET_EVENT_TYPE_CONNECT) { const uint32_t id=nextId++; peers[event.peer]=id; players[id]={}; event.peer->data=(void*)(uintptr_t)id; std::printf("Player %u connected\n",id); }
+   else if(event.type==ENET_EVENT_TYPE_RECEIVE) {
+    if(event.packet->dataLength==sizeof(NetPacket)) { NetPacket p{}; std::memcpy(&p,event.packet->data,sizeof(p)); auto it=peers.find(event.peer); if(p.magic==PacketMagic&&p.type==1&&it!=peers.end()) players[it->second]={{p.x,0,p.z},p.yaw}; }
+    enet_packet_destroy(event.packet);
+   } else if(event.type==ENET_EVENT_TYPE_DISCONNECT) {
+    auto it=peers.find(event.peer); if(it!=peers.end()) { NetPacket gone{PacketMagic,3,{0,0,0},it->second,0,0,0}; ENetPacket* packet=enet_packet_create(&gone,sizeof(gone),ENET_PACKET_FLAG_RELIABLE); if(packet) enet_host_broadcast(server,0,packet); players.erase(it->second); peers.erase(it); }
+   }
+  }
+  const auto now=std::chrono::steady_clock::now();
+  if(now-lastBroadcast>=std::chrono::milliseconds(50)) { lastBroadcast=now; for(const auto& peer:peers) for(const auto& state:players) { if(state.first==peer.second) continue; NetPacket p{PacketMagic,2,{0,0,0},state.first,state.second.position.x,state.second.position.z,state.second.yaw}; ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED); if(packet) enet_peer_send(peer.first,0,packet); } enet_host_flush(server); }
+ }
+ enet_host_destroy(server); enet_deinitialize(); return 0;
+}
+void DrawSoldier(Vector3 p,float yaw,bool enemy=false) {
+ const Color body=enemy?Color{176,62,54,255}:Color{58,112,166,255};
+ DrawCube({p.x,p.y+0.95f,p.z},0.62f,0.95f,0.38f,body);
+ DrawCube({p.x,p.y+1.62f,p.z},0.42f,0.42f,0.42f,Color{205,170,137,255});
+ DrawCube({p.x-0.18f,p.y+0.30f,p.z},0.19f,0.60f,0.22f,Color{38,43,49,255});
+ DrawCube({p.x+0.18f,p.y+0.30f,p.z},0.19f,0.60f,0.22f,Color{38,43,49,255});
+ Vector3 forward={sinf(yaw),0,-cosf(yaw)};
+ DrawCube(Vector3Add({p.x,p.y+1.18f,p.z},Vector3Scale(forward,0.52f)),0.16f,0.16f,0.82f,Color{32,35,39,255});
 }
 }
 int main(int argc,char** argv) {
-    bool serverMode=false;
-    std::string host="127.0.0.1";
-    int port=DefaultPort;
-    for(int i=1;i<argc;i++) {
-        const std::string arg=argv[i];
-        if(arg=="--server") { serverMode=true; if(i+1<argc) port=std::atoi(argv[++i]); }
-        else if(arg=="--connect"&&i+1<argc) {
-            host=argv[++i];
-            const auto colon=host.find(':');
-            if(colon!=std::string::npos){port=std::atoi(host.substr(colon+1).c_str());host.resize(colon);}
-        }
-    }
-    if(serverMode) return RunServer(port);
-    if(enet_initialize()!=0) return 1;
-    ENetHost* client=enet_host_create(nullptr,1,2,0,0);
-    if(!client){enet_deinitialize();return 1;}
-    ENetAddress address{}; address.port=(enet_uint16)port;
-    ENetPeer* serverPeer=nullptr;
-    if(enet_address_set_host(&address,host.c_str())==0) serverPeer=enet_host_connect(client,&address,2,0);
-
-    ires::Engine engine;
-    if(!engine.Initialize(1366,768,"IRanianMultiTheft | Powered by IRES ENGINE")) {
-        enet_host_destroy(client); enet_deinitialize(); return 1;
-    }
-    const std::string base=GetApplicationDirectory();
-    ires::ModelAsset player,car,building;
-    ires::TextureAsset groundMaterial;
-    ires::LoadIremgSignedTexture(base+"game.iremg","signed/textures/concrete.iresa",groundMaterial);
-    ires::LoadIremgSignedModel(base+"game.iremg","signed/models/player.iresa",player);
-    ires::LoadIremgSignedModel(base+"game.iremg","signed/models/sedan.iresa",car);
-    ires::LoadIremgSignedModel(base+"game.iremg","signed/models/building.iresa",building);
-    bool splash=true,connected=false,driving=false;
-    float splashTimer=0,sendTimer=0,yaw=0,carYaw=0;
-    Vector3 playerPos{0,0,0},carPos{4,0,5};
-    std::map<uint32_t,RemotePlayer> remotes;
-    while(!WindowShouldClose()) {
-        const float dt=GetFrameTime();
-        ENetEvent event{};
-        while(enet_host_service(client,&event,0)>0) {
-            if(event.type==ENET_EVENT_TYPE_CONNECT) connected=true;
-            else if(event.type==ENET_EVENT_TYPE_DISCONNECT) connected=false;
-            else if(event.type==ENET_EVENT_TYPE_RECEIVE) {
-                if(event.packet->dataLength==sizeof(NetPacket)) {
-                    NetPacket p{}; std::memcpy(&p,event.packet->data,sizeof(p));
-                    if(p.magic==PacketMagic&&p.type==2) remotes[p.playerId]={{p.x,0,p.z},p.yaw};
-                    if(p.magic==PacketMagic&&p.type==3) remotes.erase(p.playerId);
-                }
-                enet_packet_destroy(event.packet);
-            }
-        }
-        if(splash) {
-            splashTimer+=dt;
-            if(IsKeyPressed(KEY_ENTER)||splashTimer>2.8f) splash=false;
-            engine.BeginFrame(Color{10,13,22,255});
-            const int w=GetScreenWidth(),h=GetScreenHeight();
-            DrawCircleGradient(w/2,h/2,220,Color{28,54,89,255},Color{10,13,22,0});
-            DrawText("IRES",w/2-130,h/2-105,92,GOLD);
-            DrawText("ENGINE",w/2-105,h/2-16,42,RAYWHITE);
-            DrawText("IRANIAN MULTI THEFT",w/2-150,h/2+62,20,Color{110,190,255,255});
-            DrawRectangle(w/2-170,h/2+112,340,5,Fade(RAYWHITE,0.18f));
-            DrawRectangle(w/2-170,h/2+112,(int)(340*Clamp(splashTimer/2.8f,0,1)),5,GOLD);
-            DrawText("INITIALIZING WORLD SYSTEMS...",w/2-150,h/2+135,14,LIGHTGRAY);
-            DrawText("PRESS ENTER TO CONTINUE",w/2-115,h-54,15,Fade(RAYWHITE,0.75f));
-            engine.EndFrame(); continue;
-        }
-        const float turn=(IsKeyDown(KEY_A)?-1.0f:0.0f)+(IsKeyDown(KEY_D)?1.0f:0.0f);
-        const float move=(IsKeyDown(KEY_W)?1.0f:0.0f)-(IsKeyDown(KEY_S)?1.0f:0.0f);
-        if(IsKeyPressed(KEY_E)&&Vector3Distance(playerPos,carPos)<4.5f) driving=!driving;
-        if(driving) {
-            carYaw+=turn*2.0f*dt;
-            carPos.x+=sinf(carYaw)*move*11.0f*dt; carPos.z+=cosf(carYaw)*move*11.0f*dt;
-            playerPos=carPos;
-        } else {
-            yaw+=turn*2.4f*dt;
-            playerPos.x+=sinf(yaw)*move*6.0f*dt; playerPos.z+=cosf(yaw)*move*6.0f*dt;
-        }
-        sendTimer+=dt;
-        if(connected&&serverPeer&&sendTimer>=0.05f) {
-            sendTimer=0;
-            NetPacket p{PacketMagic,1,{0,0,0},0,playerPos.x,playerPos.z,driving?carYaw:yaw};
-            ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED);
-            if(packet) enet_peer_send(serverPeer,0,packet);
-            enet_host_flush(client);
-        }
-        const Vector3 focus=driving?carPos:playerPos;
-        engine.Camera().target=Vector3Lerp(engine.Camera().target,{focus.x,1.0f,focus.z},5*dt);
-        engine.Camera().position=Vector3Lerp(engine.Camera().position,{focus.x-sinf(yaw)*9,5.5f,focus.z-cosf(yaw)*9},4*dt);
-        engine.BeginFrame(Color{135,184,218,255});
-        engine.Begin3D();
-        DrawPlane(Vector3{0.0f,-0.1f,0.0f},Vector2{240.0f,240.0f},groundMaterial.color); DrawGrid(60,4.0f);
-        for(int x=-4;x<=4;x++) for(int z=-4;z<=4;z++) if(abs(x)>=2&&abs(z)>=2) engine.DrawModel(building,{(float)x*18,0,(float)z*18},0,1);
-        engine.DrawModel(car,carPos,carYaw,1);
-        if(!driving) engine.DrawModel(player,playerPos,yaw,1);
-        for(const auto& entry:remotes) engine.DrawModel(player,entry.second.position,entry.second.yaw,1);
-        engine.End3D();
-        DrawRectangle(18,18,355,132,Fade(BLACK,0.68f));
-        DrawText("IRANIAN MULTI THEFT",34,30,22,GOLD);
-        DrawText(ires::Engine::Version(),34,59,15,RAYWHITE);
-        DrawText(connected?"MULTIPLAYER: CONNECTED":"MULTIPLAYER: OFFLINE",34,83,14,connected?LIME:ORANGE);
-        DrawText(TextFormat("Players: %i",1+(int)remotes.size()),34,105,14,RAYWHITE);
-        DrawText("WASD: MOVE   E: VEHICLE",22,GetScreenHeight()-34,16,RAYWHITE);
-        DrawFPS(GetScreenWidth()-90,18);
-        engine.EndFrame();
-    }
-    if(serverPeer&&serverPeer->state==ENET_PEER_STATE_CONNECTED) enet_peer_disconnect(serverPeer,0);
-    enet_host_flush(client); engine.Shutdown(); enet_host_destroy(client); enet_deinitialize();
-    return 0;
+ bool serverMode=false; std::string host="127.0.0.1"; int port=DefaultPort;
+ for(int i=1;i<argc;i++) { const std::string arg=argv[i]; if(arg=="--server") { serverMode=true; if(i+1<argc) port=std::atoi(argv[++i]); } else if(arg=="--connect"&&i+1<argc) { host=argv[++i]; const auto colon=host.find(':'); if(colon!=std::string::npos){port=std::atoi(host.substr(colon+1).c_str());host.resize(colon);} } }
+ if(serverMode) return RunServer(port);
+ if(enet_initialize()!=0) return 1;
+ ENetHost* client=enet_host_create(nullptr,1,2,0,0); if(!client){enet_deinitialize();return 1;}
+ ENetAddress address{}; address.port=(enet_uint16)port; ENetPeer* serverPeer=nullptr; if(enet_address_set_host(&address,host.c_str())==0) serverPeer=enet_host_connect(client,&address,2,0);
+ ires::Engine engine; if(!engine.Initialize(1366,768,"IRAntheft | IRES Tactical Shooter")) { enet_host_destroy(client); enet_deinitialize(); return 1; }
+ const std::string base=GetApplicationDirectory(); std::vector<ires::Primitive> world;
+ if(!ires::LoadMap(base+"assets/maps/arena.iremap",world)) {
+  world.push_back({{0,-0.25f,0},{100,0.5f,100},Color{75,91,72,255}});
+  for(int i=-5;i<=5;i++) { world.push_back({{(float)i*8,1,-40},{7.8f,2,1},Color{87,99,112,255}}); world.push_back({{(float)i*8,1,40},{7.8f,2,1},Color{87,99,112,255}}); world.push_back({{-40,1,(float)i*8},{1,2,7.8f},Color{87,99,112,255}}); world.push_back({{40,1,(float)i*8},{1,2,7.8f},Color{87,99,112,255}}); }
+ }
+ std::vector<Target> targets; for(int i=0;i<8;i++) targets.push_back({{(float)((i%4)-2)*7.0f,0,(float)(i/4)*-15.0f-12.0f},100,true});
+ bool splash=true,connected=false,reloading=false; float splashTimer=0,sendTimer=0,yaw=0,pitch=0,health=100,shotCooldown=0,reloadTimer=0; int ammo=30,reserve=120,kills=0;
+ Vector3 playerPos{0,0,7}; std::map<uint32_t,RemotePlayer> remotes; DisableCursor();
+ while(!WindowShouldClose()) {
+  const float dt=GetFrameTime(); shotCooldown=std::max(0.0f,shotCooldown-dt);
+  ENetEvent event{};
+  while(enet_host_service(client,&event,0)>0) {
+   if(event.type==ENET_EVENT_TYPE_CONNECT) connected=true;
+   else if(event.type==ENET_EVENT_TYPE_DISCONNECT) connected=false;
+   else if(event.type==ENET_EVENT_TYPE_RECEIVE) { if(event.packet->dataLength==sizeof(NetPacket)) { NetPacket p{}; std::memcpy(&p,event.packet->data,sizeof(p)); if(p.magic==PacketMagic&&p.type==2) remotes[p.playerId]={{p.x,0,p.z},p.yaw}; if(p.magic==PacketMagic&&p.type==3) remotes.erase(p.playerId); } enet_packet_destroy(event.packet); }
+  }
+  if(splash) { splashTimer+=dt; if(IsKeyPressed(KEY_ENTER)||splashTimer>2.8f) splash=false; engine.BeginFrame(Color{10,13,22,255}); int w=GetScreenWidth(),h=GetScreenHeight(); DrawCircleGradient(w/2,h/2,220,Color{28,54,89,255},Color{10,13,22,0}); DrawText("IRANTHEFT",w/2-230,h/2-95,64,GOLD); DrawText("TACTICAL MULTIPLAYER",w/2-175,h/2-15,25,RAYWHITE); DrawText("IRES ENGINE",w/2-80,h/2+35,18,Color{110,190,255,255}); DrawText("PRESS ENTER TO DEPLOY",w/2-125,h-54,16,Fade(RAYWHITE,0.8f)); engine.EndFrame(); continue; }
+  if(IsKeyPressed(KEY_ESCAPE)) break;
+  Vector2 mouse=GetMouseDelta(); yaw-=mouse.x*0.0032f; pitch=Clamp(pitch-mouse.y*0.0026f,-0.48f,0.42f);
+  Vector3 forward={sinf(yaw),0,-cosf(yaw)},right={cosf(yaw),0,sinf(yaw)},movement={0,0,0};
+  if(IsKeyDown(KEY_W)) movement=Vector3Add(movement,forward); if(IsKeyDown(KEY_S)) movement=Vector3Subtract(movement,forward);
+  if(IsKeyDown(KEY_D)) movement=Vector3Add(movement,right); if(IsKeyDown(KEY_A)) movement=Vector3Subtract(movement,right);
+  if(Vector3Length(movement)>0.01f) playerPos=Vector3Add(playerPos,Vector3Scale(Vector3Normalize(movement),(IsKeyDown(KEY_LEFT_SHIFT)?9.0f:5.8f)*dt));
+  playerPos.x=Clamp(playerPos.x,-37,37); playerPos.z=Clamp(playerPos.z,-37,37);
+  if(IsKeyPressed(KEY_R)&&ammo<30&&reserve>0&&!reloading) { reloading=true; reloadTimer=1.25f; }
+  if(reloading) { reloadTimer-=dt; if(reloadTimer<=0) { int load=std::min(30-ammo,reserve); ammo+=load; reserve-=load; reloading=false; } }
+  if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)&&!reloading&&shotCooldown<=0&&ammo>0) {
+   ammo--; shotCooldown=0.12f; Vector3 aim={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)}; Ray ray={Vector3Add(playerPos,{0,1.55f,0}),aim}; float nearest=1000; int selected=-1;
+   for(size_t i=0;i<targets.size();i++) if(targets[i].active) { BoundingBox box={{targets[i].position.x-0.48f,0,targets[i].position.z-0.35f},{targets[i].position.x+0.48f,1.9f,targets[i].position.z+0.35f}}; RayCollision hit=GetRayCollisionBox(ray,box); if(hit.hit&&hit.distance<nearest){nearest=hit.distance;selected=(int)i;} }
+   if(selected>=0) { targets[selected].health-=34; if(targets[selected].health<=0) { targets[selected].active=false; kills++; } }
+  }
+  if(IsKeyPressed(KEY_F)&&health<100) health=std::min(100.0f,health+25.0f);
+  sendTimer+=dt; if(connected&&serverPeer&&sendTimer>=0.05f) { sendTimer=0; NetPacket p{PacketMagic,1,{0,0,0},0,playerPos.x,playerPos.z,yaw}; ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED); if(packet) enet_peer_send(serverPeer,0,packet); enet_host_flush(client); }
+  Vector3 focus=Vector3Add(playerPos,{0,1.25f,0}); Vector3 camOffset={-forward.x*7.5f,3.2f-pitch*2.0f,-forward.z*7.5f}; engine.Camera().target=Vector3Lerp(engine.Camera().target,focus,8*dt); engine.Camera().position=Vector3Lerp(engine.Camera().position,Vector3Add(focus,camOffset),8*dt);
+  engine.BeginFrame(Color{113,158,190,255}); engine.Begin3D(); DrawPlane({0,-0.08f,0},{120,120},Color{67,83,68,255}); DrawGrid(60,2);
+  for(const auto& p:world) { DrawCube(p.position,p.size.x,p.size.y,p.size.z,p.color); DrawCubeWires(p.position,p.size.x,p.size.y,p.size.z,Fade(BLACK,0.12f)); }
+  for(const auto& t:targets) if(t.active) { DrawCube({t.position.x,0.95f,t.position.z},0.82f,1.9f,0.62f,Color{153,55,48,255}); DrawSphere({t.position.x,2.15f,t.position.z},0.28f,Color{214,176,135,255}); DrawCube({t.position.x,1.0f,t.position.z+0.48f},0.12f,0.7f,0.18f,DARKGRAY); }
+  DrawSoldier(playerPos,yaw); for(const auto& e:remotes) DrawSoldier(e.second.position,e.second.yaw,true); engine.End3D();
+  int sw=GetScreenWidth(),sh=GetScreenHeight(); DrawRectangle(18,18,310,112,Fade(Color{9,14,22,255},0.82f)); DrawText("IRANTHEFT  /  TACTICAL",32,28,18,GOLD); DrawText(connected?"ONLINE  |  CONNECTED":"OFFLINE  |  LOCAL TRAINING",32,55,13,connected?LIME:ORANGE); DrawText(TextFormat("KILLS  %02i     PLAYERS  %02i",kills,1+(int)remotes.size()),32,82,15,RAYWHITE);
+  DrawRectangle(22,sh-58,220,12,Fade(BLACK,0.6f)); DrawRectangle(22,sh-58,(int)(220*health/100.0f),12,health>35?LIME:RED); DrawText(TextFormat("HP %i",(int)health),250,sh-62,17,RAYWHITE);
+  DrawRectangle(sw-220,sh-105,196,82,Fade(Color{9,14,22,255},0.82f)); DrawText(reloading?"RELOADING":TextFormat("%02i / %03i",ammo,reserve),sw-202,sh-92,30,RAYWHITE); DrawText("R RELOAD   SHIFT SPRINT",sw-202,sh-52,11,LIGHTGRAY);
+  DrawLine(sw/2-9,sh/2,sw/2+9,sh/2,WHITE); DrawLine(sw/2,sh/2-9,sw/2,sh/2+9,WHITE); DrawText("WASD MOVE  MOUSE AIM  LMB FIRE  R RELOAD  F MEDKIT  ESC EXIT",sw/2-260,sh-24,13,RAYWHITE); DrawFPS(sw-82,18); engine.EndFrame();
+ }
+ EnableCursor(); if(serverPeer&&serverPeer->state==ENET_PEER_STATE_CONNECTED) enet_peer_disconnect(serverPeer,0); enet_host_flush(client); engine.Shutdown(); enet_host_destroy(client); enet_deinitialize(); return 0;
 }
