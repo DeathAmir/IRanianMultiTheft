@@ -71,6 +71,7 @@ if(WIN32)
 endif()
 
 if(MSVC)
+    target_compile_options(enet PRIVATE /wd5287 /wd4996)
     foreach(target ires_engine irantheft ires_editor ires_map_editor ires_packer ires_signer)
         target_compile_options(${target} PRIVATE /W4 /permissive-)
     endforeach()
