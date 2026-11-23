@@ -15,8 +15,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install OpenSSL
+        run: vcpkg install openssl:x64-windows
       - name: Configure x64 Release
-        run: cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
       - name: Build with 8 parallel jobs
         run: cmake --build build --config Release --parallel 8
       - name: Stage binaries and packed game
@@ -26,6 +28,7 @@ jobs:
           Copy-Item build/Release/irantheft.exe dist/
           Copy-Item build/Release/ires_editor.exe dist/
           Copy-Item build/Release/ires_packer.exe dist/
+          Copy-Item build/Release/ires_signer.exe dist/
           Copy-Item build/game.iremg dist/
           Copy-Item -Recurse build/assets dist/assets
       - name: Upload IRES Windows x64
