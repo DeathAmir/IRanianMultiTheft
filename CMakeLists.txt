@@ -23,6 +23,15 @@ FetchContent_Declare(enet
 )
 FetchContent_MakeAvailable(raylib enet)
 
+if(WIN32)
+    file(READ "${raylib_SOURCE_DIR}/src/raylib.h" RAYLIB_HEADER)
+    string(REPLACE "RLAPI void PlaySound(Sound sound);" "RLAPI void RaylibPlaySound(Sound sound);" RAYLIB_HEADER "${RAYLIB_HEADER}")
+    file(WRITE "${raylib_SOURCE_DIR}/src/raylib.h" "${RAYLIB_HEADER}")
+    file(READ "${raylib_SOURCE_DIR}/src/raudio.c" RAYLIB_AUDIO)
+    string(REPLACE "void PlaySound(Sound sound)" "void RaylibPlaySound(Sound sound)" RAYLIB_AUDIO "${RAYLIB_AUDIO}")
+    file(WRITE "${raylib_SOURCE_DIR}/src/raudio.c" "${RAYLIB_AUDIO}")
+endif()
+
 add_library(ires_engine STATIC
     engine/ires_engine.cpp
     engine/asset_formats.cpp
