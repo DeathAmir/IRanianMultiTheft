@@ -25,4 +25,5 @@ bool SaveIrem(const std::string& path, const ModelAsset& asset);
 bool PackIremg(const std::string& inputDirectory, const std::string& outputFile);
 bool ReadIremg(const std::string& archive, const std::string& path, std::string& contents);
 bool LoadIremgModel(const std::string& archive, const std::string& path, ModelAsset& out);
+bool LoadIremgTexture(const std::string& archive, const std::string& path, TextureAsset& out);
 }
