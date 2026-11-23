@@ -20,6 +20,15 @@
 #include <string>
 #include <vector>
 namespace {
+Font gUiFont{};
+Model gSoldierModel{};
+Model gWeaponModel{};
+bool gHasSoldierModel=false;
+bool gHasWeaponModel=false;
+void UiText(const char* text,int x,int y,float size,Color color) {
+ if(gUiFont.texture.id>0) DrawTextEx(gUiFont,text,{(float)x,(float)y},size,1.0f,color);
+ else UiText(text,x,y,(int)size,color);
+}
 constexpr int DefaultPort=27880;
 constexpr uint32_t PacketMagic=0x49524553;
 struct NetPacket { uint32_t magic; uint8_t type; uint8_t reserved[3]; uint32_t playerId; float x,z,yaw; };
@@ -58,6 +67,10 @@ bool CanStand(Vector3 position,const std::vector<ires::Primitive>& world) {
  return true;
 }
 void DrawSoldier(Vector3 p,float yaw,bool enemy=false) {
+ if(gHasSoldierModel) {
+  DrawModelEx(gSoldierModel,{p.x,p.y,p.z},{0,1,0},yaw*RAD2DEG,{1.0f,1.0f,1.0f},WHITE);
+  return;
+ }
  const Color body=enemy?Color{176,62,54,255}:Color{58,112,166,255};
  DrawCube({p.x,p.y+0.95f,p.z},0.62f,0.95f,0.38f,body);
  DrawCube({p.x,p.y+1.62f,p.z},0.42f,0.42f,0.42f,Color{205,170,137,255});
@@ -75,7 +88,14 @@ int main(int argc,char** argv) {
  ENetHost* client=enet_host_create(nullptr,1,2,0,0); if(!client){enet_deinitialize();return 1;}
  ENetAddress address{}; address.port=(enet_uint16)port; ENetPeer* serverPeer=nullptr; if(enet_address_set_host(&address,host.c_str())==0) serverPeer=enet_host_connect(client,&address,2,0);
  ires::Engine engine; if(!engine.Initialize(1366,768,"IRAntheft | IRES Tactical Shooter")) { enet_host_destroy(client); enet_deinitialize(); return 1; }
- const std::string base=GetApplicationDirectory(); std::vector<ires::Primitive> world;
+ const std::string base=GetApplicationDirectory();
+ gUiFont=LoadFontEx((base+"assets/fonts/IBMPlexSans[wdth,wght].ttf").c_str(),32,nullptr,0);
+ if(gUiFont.texture.id>0) SetTextureFilter(gUiFont.texture,TEXTURE_FILTER_BILINEAR);
+ gSoldierModel=LoadModel((base+"assets/models/Swat.glb").c_str());
+ gHasSoldierModel=gSoldierModel.meshCount>0;
+ gWeaponModel=LoadModel((base+"assets/models/SMG_1.glb").c_str());
+ gHasWeaponModel=gWeaponModel.meshCount>0;
+ std::vector<ires::Primitive> world;
  if(!ires::LoadMap(base+"assets/maps/arena.iremap",world)) {
   world.push_back({{0,-0.25f,0},{100,0.5f,100},Color{75,91,72,255}});
   for(int i=-5;i<=5;i++) { world.push_back({{(float)i*8,1,-40},{7.8f,2,1},Color{87,99,112,255}}); world.push_back({{(float)i*8,1,40},{7.8f,2,1},Color{87,99,112,255}}); world.push_back({{-40,1,(float)i*8},{1,2,7.8f},Color{87,99,112,255}}); world.push_back({{40,1,(float)i*8},{1,2,7.8f},Color{87,99,112,255}}); }
@@ -91,7 +111,7 @@ int main(int argc,char** argv) {
    else if(event.type==ENET_EVENT_TYPE_DISCONNECT) connected=false;
    else if(event.type==ENET_EVENT_TYPE_RECEIVE) { if(event.packet->dataLength==sizeof(NetPacket)) { NetPacket p{}; std::memcpy(&p,event.packet->data,sizeof(p)); if(p.magic==PacketMagic&&p.type==2) remotes[p.playerId]={{p.x,0,p.z},p.yaw}; if(p.magic==PacketMagic&&p.type==3) remotes.erase(p.playerId); } enet_packet_destroy(event.packet); }
   }
-  if(splash) { splashTimer+=dt; if(IsKeyPressed(KEY_ENTER)||splashTimer>2.8f) splash=false; engine.BeginFrame(Color{10,13,22,255}); int w=GetScreenWidth(),h=GetScreenHeight(); DrawCircleGradient(w/2,h/2,220,Color{28,54,89,255},Color{10,13,22,0}); DrawText("IRANTHEFT",w/2-230,h/2-95,64,GOLD); DrawText("TACTICAL MULTIPLAYER",w/2-175,h/2-15,25,RAYWHITE); DrawText("IRES ENGINE",w/2-80,h/2+35,18,Color{110,190,255,255}); DrawText("PRESS ENTER TO DEPLOY",w/2-125,h-54,16,Fade(RAYWHITE,0.8f)); engine.EndFrame(); continue; }
+  if(splash) { splashTimer+=dt; if(IsKeyPressed(KEY_ENTER)||splashTimer>2.8f) splash=false; engine.BeginFrame(Color{10,13,22,255}); int w=GetScreenWidth(),h=GetScreenHeight(); DrawCircleGradient(w/2,h/2,220,Color{28,54,89,255},Color{10,13,22,0}); UiText("IRANTHEFT",w/2-230,h/2-95,64,GOLD); UiText("TACTICAL MULTIPLAYER",w/2-175,h/2-15,25,RAYWHITE); UiText("IRES ENGINE",w/2-80,h/2+35,18,Color{110,190,255,255}); UiText("PRESS ENTER TO DEPLOY",w/2-125,h-54,16,Fade(RAYWHITE,0.8f)); engine.EndFrame(); continue; }
   if(IsKeyPressed(KEY_ESCAPE)) break;
   Vector2 mouse=GetMouseDelta(); yaw+=mouse.x*0.0032f; pitch=Clamp(pitch-mouse.y*0.0026f,-0.48f,0.42f);
   Vector3 forward={sinf(yaw),0,-cosf(yaw)},right={cosf(yaw),0,sinf(yaw)},movement={0,0,0};
@@ -113,15 +133,29 @@ int main(int argc,char** argv) {
   }
   if(IsKeyPressed(KEY_F)&&health<100) health=std::min(100.0f,health+25.0f);
   sendTimer+=dt; if(connected&&serverPeer&&sendTimer>=0.05f) { sendTimer=0; NetPacket p{PacketMagic,1,{0,0,0},0,playerPos.x,playerPos.z,yaw}; ENetPacket* packet=enet_packet_create(&p,sizeof(p),ENET_PACKET_FLAG_UNSEQUENCED); if(packet) enet_peer_send(serverPeer,0,packet); enet_host_flush(client); }
-  Vector3 focus=Vector3Add(playerPos,{0,1.25f,0}); Vector3 camOffset={-forward.x*7.5f,3.2f-pitch*2.0f,-forward.z*7.5f}; engine.Camera().target=Vector3Lerp(engine.Camera().target,focus,8*dt); engine.Camera().position=Vector3Lerp(engine.Camera().position,Vector3Add(focus,camOffset),8*dt);
+  Vector3 eye=Vector3Add(playerPos,{0,1.62f,0});
+  Vector3 aimDirection={forward.x*cosf(pitch),sinf(pitch),forward.z*cosf(pitch)};
+  engine.Camera().position=eye;
+  engine.Camera().target=Vector3Add(eye,aimDirection);
+  engine.Camera().up={0,1,0};
+  engine.Camera().fovy=76.0f;
   engine.BeginFrame(Color{113,158,190,255}); engine.Begin3D(); DrawPlane({0,-0.08f,0},{120,120},Color{67,83,68,255}); DrawGrid(60,2);
   for(const auto& p:world) { DrawCube(p.position,p.size.x,p.size.y,p.size.z,p.color); DrawCubeWires(p.position,p.size.x,p.size.y,p.size.z,Fade(BLACK,0.12f)); }
-  for(const auto& t:targets) if(t.active) { DrawCube({t.position.x,0.95f,t.position.z},0.82f,1.9f,0.62f,Color{153,55,48,255}); DrawSphere({t.position.x,2.15f,t.position.z},0.28f,Color{214,176,135,255}); DrawCube({t.position.x,1.0f,t.position.z+0.48f},0.12f,0.7f,0.18f,DARKGRAY); }
-  DrawSoldier(playerPos,yaw); for(const auto& e:remotes) DrawSoldier(e.second.position,e.second.yaw,true); engine.End3D();
-  int sw=GetScreenWidth(),sh=GetScreenHeight(); DrawRectangle(18,18,310,112,Fade(Color{9,14,22,255},0.82f)); DrawText("IRANTHEFT  /  TACTICAL",32,28,18,GOLD); DrawText(connected?"ONLINE  |  CONNECTED":"OFFLINE  |  LOCAL TRAINING",32,55,13,connected?LIME:ORANGE); DrawText(TextFormat("KILLS  %02i     PLAYERS  %02i",kills,1+(int)remotes.size()),32,82,15,RAYWHITE);
-  DrawRectangle(22,sh-58,220,12,Fade(BLACK,0.6f)); DrawRectangle(22,sh-58,(int)(220*health/100.0f),12,health>35?LIME:RED); DrawText(TextFormat("HP %i",(int)health),250,sh-62,17,RAYWHITE);
-  DrawRectangle(sw-220,sh-105,196,82,Fade(Color{9,14,22,255},0.82f)); DrawText(reloading?"RELOADING":TextFormat("%02i / %03i",ammo,reserve),sw-202,sh-92,30,RAYWHITE); DrawText("R RELOAD   SHIFT SPRINT",sw-202,sh-52,11,LIGHTGRAY);
-  DrawLine(sw/2-9,sh/2,sw/2+9,sh/2,WHITE); DrawLine(sw/2,sh/2-9,sw/2,sh/2+9,WHITE); DrawText("WASD MOVE  MOUSE AIM  LMB FIRE  R RELOAD  F MEDKIT  ESC EXIT",sw/2-260,sh-24,13,RAYWHITE); DrawFPS(sw-82,18); engine.EndFrame();
+  for(const auto& t:targets) if(t.active) DrawSoldier(t.position,0.0f,true);
+  for(const auto& e:remotes) DrawSoldier(e.second.position,e.second.yaw,true);
+  if(gHasWeaponModel) {
+   Vector3 weaponPosition=Vector3Add(eye,Vector3Add(Vector3Scale(right,0.28f),Vector3Add(Vector3Scale(aimDirection,0.62f),Vector3{0,-0.25f,0})));
+   DrawModelEx(gWeaponModel,weaponPosition,{0,1,0},yaw*RAD2DEG,{0.34f,0.34f,0.34f},WHITE);
+  }
+  engine.End3D();
+  int sw=GetScreenWidth(),sh=GetScreenHeight(); DrawRectangle(18,18,310,112,Fade(Color{9,14,22,255},0.82f)); UiText("IRANTHEFT  /  TACTICAL",32,28,18,GOLD); UiText(connected?"ONLINE  |  CONNECTED":"OFFLINE  |  LOCAL TRAINING",32,55,13,connected?LIME:ORANGE); UiText(TextFormat("KILLS  %02i     PLAYERS  %02i",kills,1+(int)remotes.size()),32,82,15,RAYWHITE);
+  DrawRectangle(22,sh-58,220,12,Fade(BLACK,0.6f)); DrawRectangle(22,sh-58,(int)(220*health/100.0f),12,health>35?LIME:RED); UiText(TextFormat("HP %i",(int)health),250,sh-62,17,RAYWHITE);
+  DrawRectangle(sw-220,sh-105,196,82,Fade(Color{9,14,22,255},0.82f)); UiText(reloading?"RELOADING":TextFormat("%02i / %03i",ammo,reserve),sw-202,sh-92,30,RAYWHITE); UiText("R RELOAD   SHIFT SPRINT",sw-202,sh-52,11,LIGHTGRAY);
+  DrawLine(sw/2-9,sh/2,sw/2+9,sh/2,WHITE); DrawLine(sw/2,sh/2-9,sw/2,sh/2+9,WHITE); UiText("WASD MOVE  MOUSE AIM  LMB FIRE  R RELOAD  F MEDKIT  ESC EXIT",sw/2-260,sh-24,13,RAYWHITE); DrawFPS(sw-82,18); engine.EndFrame();
  }
- EnableCursor(); if(serverPeer&&serverPeer->state==ENET_PEER_STATE_CONNECTED) enet_peer_disconnect(serverPeer,0); enet_host_flush(client); engine.Shutdown(); enet_host_destroy(client); enet_deinitialize(); return 0;
+ EnableCursor();
+ if(gHasWeaponModel) UnloadModel(gWeaponModel);
+ if(gHasSoldierModel) UnloadModel(gSoldierModel);
+ if(gUiFont.texture.id>0) UnloadFont(gUiFont);
+ if(serverPeer&&serverPeer->state==ENET_PEER_STATE_CONNECTED) enet_peer_disconnect(serverPeer,0); enet_host_flush(client); engine.Shutdown(); enet_host_destroy(client); enet_deinitialize(); return 0;
 }
