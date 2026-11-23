@@ -35,6 +35,7 @@
       "../../launcher-resources/game/game.iremg": "game/game.iremg",
       "../../launcher-resources/game/assets": "game/assets",
       "../../launcher-resources/game/ires_editor.exe": "game/ires_editor.exe",
+      "../../launcher-resources/game/ires_map_editor.exe": "game/ires_map_editor.exe",
       "../../launcher-resources/game/ires_packer.exe": "game/ires_packer.exe",
       "../../launcher-resources/game/ires_signer.exe": "game/ires_signer.exe"
     },
